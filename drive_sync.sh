@@ -87,14 +87,18 @@ handle_sync_result() {
             return 0
             ;;
         2)
-            log_warning "$log_file" "Rate limit reached"
+            log_warning "$log_file" "Temporary error detected"
             if recover_from_rate_limit "$log_file" "$remote_name" "$state_file" \
                                        "$lock_file" "$backoff_seconds"; then
                 return 2
             else
-                log_error "$log_file" "Failed to recover from rate limiting"
+                log_error "$log_file" "Failed to recover from temporary error"
                 return 1
             fi
+            ;;
+        3)
+            log_error "$log_file" "Fatal error (permanent, retries won't help)"
+            return 1
             ;;
         *)
             log_error "$log_file" "Sync failed with error $result"
@@ -162,6 +166,8 @@ do_sync() {
                     sync_result=$?
                 elif [[ $pull_result -eq 2 ]]; then
                     sync_result=2
+                elif [[ $pull_result -eq 3 ]]; then
+                    sync_result=3
                 else
                     sync_result=$pull_result
                 fi
@@ -177,6 +183,7 @@ do_sync() {
             0) return 0 ;;
             1) return 1 ;;
             2) attempt=$((attempt + 1)); continue ;;
+            3) return 1 ;;
         esac
     done
 

@@ -3,8 +3,8 @@
 # limit.sh — Google Drive API rate limit detection and recovery
 #
 # Handles recovery from Google Drive API rate limiting (HTTP 429).
-# When rclone exits with code 7 or 9, we wait for the rate limit
-# to expire and then resume operations.
+# Rclone exit codes: 5 = temporary/retry-able, 6 = less serious,
+# 7 = fatal (permanent). We attempt recovery on 5 and 6.
 
 [[ "${BASH_SOURCE[0]}" == "${0}" ]] && {
     echo "This script should be sourced, not executed directly" >&2
@@ -17,7 +17,17 @@
 
 is_rate_limit_error() {
     local exit_code="$1"
-    [[ $exit_code -eq 7 ]] || [[ $exit_code -eq 9 ]]
+    # Exit code 5 = temporary/retry-able error (HTTP 429, rate limit, transient network)
+    # Exit code 6 = less serious NoRetry error (e.g. Dropbox 461)
+    # Note: rclone's own --retries handles code 5 internally, so this may catch
+    # cases where rclone exhausted its retries or had retries=0 override
+    [[ $exit_code -eq 5 ]] || [[ $exit_code -eq 6 ]]
+}
+
+is_fatal_error() {
+    local exit_code="$1"
+    # Exit code 7 = fatal (account suspended, auth revoked); retries won't help
+    [[ $exit_code -eq 7 ]]
 }
 
 #=============================================================================

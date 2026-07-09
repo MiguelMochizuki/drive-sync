@@ -3,7 +3,8 @@
 # sync_ops.sh — Rclone synchronization operations
 #
 # Wrappers around rclone sync that add consistent performance and safety flags.
-# Detects rate limiting (error 7 or 9) and returns special exit code 2 for retry.
+# Distinguishes temporary errors (exit 5/6 → retry), fatal errors (exit 7 → abort),
+# and unknown errors (exit 1/other → retry once).
 
 [[ "${BASH_SOURCE[0]}" == "${0}" ]] && {
     echo "This script should be sourced, not executed directly" >&2
@@ -55,13 +56,18 @@ sync_to_drive() {
         return 0
     else
         local exit_code=$?
-        if is_rate_limit_error "$exit_code"; then
-            log_warning "$log_file" "Rate limit detected (error $exit_code)"
+        if is_fatal_error "$exit_code"; then
+            log_error "$log_file" "Upload failed with fatal error $exit_code (permanent)"
+            update_state "$state_file" "$lock_file" "sync_status" "failed"
+            return 3
+        elif is_rate_limit_error "$exit_code"; then
+            log_warning "$log_file" "Temporary error detected (code $exit_code)"
             return 2
+        else
+            log_error "$log_file" "Upload failed with code $exit_code"
+            update_state "$state_file" "$lock_file" "sync_status" "failed"
+            return 1
         fi
-        log_error "$log_file" "Upload failed with code $exit_code"
-        update_state "$state_file" "$lock_file" "sync_status" "failed"
-        return 1
     fi
 }
 
@@ -81,11 +87,15 @@ sync_from_drive() {
         return 0
     else
         local exit_code=$?
-        if is_rate_limit_error "$exit_code"; then
-            log_warning "$log_file" "Rate limit detected (error $exit_code)"
+        if is_fatal_error "$exit_code"; then
+            log_error "$log_file" "Download failed with fatal error $exit_code (permanent)"
+            return 3
+        elif is_rate_limit_error "$exit_code"; then
+            log_warning "$log_file" "Temporary error detected (code $exit_code)"
             return 2
+        else
+            log_error "$log_file" "Download failed with code $exit_code"
+            return 1
         fi
-        log_error "$log_file" "Download failed with code $exit_code"
-        return 1
     fi
 }
