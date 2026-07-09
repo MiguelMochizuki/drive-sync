@@ -2,8 +2,11 @@
 #
 # config.sh — Configuration constants and defaults
 #
-# Edit this file to customize behavior: directory paths, performance tuning,
-# compression profiles, timeouts, and retry logic.
+# All paths, performance tuning, compression profiles, and retry logic.
+# Override any variable by creating ~/.drive-sync/drive-sync.conf.
+#
+# Service data (state, logs, lock) lives in ~/.drive-sync/, not in the
+# synced directory — your ~/drive stays clean with only your files.
 
 [[ "${BASH_SOURCE[0]}" == "${0}" ]] && {
     echo "This script should be sourced, not executed directly" >&2
@@ -11,66 +14,107 @@
 }
 
 #=============================================================================
+# Version — single source of truth
+#=============================================================================
+
+readonly VERSION="1.0.1"
+
+#=============================================================================
+# Service Directory
+#=============================================================================
+
+readonly DRIVE_SYNC_HOME="${HOME}/.drive-sync"
+
+mkdir -p "$DRIVE_SYNC_HOME"
+
+#=============================================================================
 # Directory Paths
 #=============================================================================
 
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-readonly REMOTE_NAME="drive:"
-readonly DRIVE_ROOT="${HOME}/drive"
-readonly LOCAL_PATH="${DRIVE_ROOT}"
-readonly STATE_DIR="${DRIVE_ROOT}/.sync"
-readonly LOG_DIR="${DRIVE_ROOT}/.logs"
-readonly STATE_FILE="${STATE_DIR}/state.json"
-readonly LOCK_FILE="${STATE_DIR}/state.lock"
-readonly LOG_FILE="${LOG_DIR}/drive_sync.log"
+REMOTE_NAME="drive:"
+DRIVE_ROOT="${HOME}/drive"
+LOCAL_PATH="${DRIVE_ROOT}"
+STATE_DIR="${DRIVE_SYNC_HOME}"
+LOG_DIR="${DRIVE_SYNC_HOME}"
+STATE_FILE="${STATE_DIR}/state.json"
+LOCK_FILE="${STATE_DIR}/state.lock"
+LOG_FILE="${LOG_DIR}/drive_sync.log"
 
 #=============================================================================
 # Rclone Performance Tuning
 #=============================================================================
 
-readonly RCLONE_TRANSFERS="2"
-readonly RCLONE_CHECKERS="2"
-readonly RCLONE_TPSLIMIT="8"
-readonly RCLONE_TPSLIMIT_BURST="5"
-readonly RCLONE_TIMEOUT="5m"
-readonly RCLONE_RETRIES="3"
-readonly RCLONE_DRIVE_CHUNK_SIZE="128M"
+RCLONE_TRANSFERS="2"
+RCLONE_CHECKERS="2"
+RCLONE_TPSLIMIT="8"
+RCLONE_TPSLIMIT_BURST="5"
+RCLONE_TIMEOUT="5m"
+RCLONE_RETRIES="3"
+RCLONE_DRIVE_CHUNK_SIZE="128M"
 
 #=============================================================================
 # PDF Compression
+#
+# ⚠️  WARNING: Overriding these mid-flight can corrupt your workflow:
+#   OPTIMIZED_MARKER — changing the suffix makes already-optimized PDFs invisible
+#   GHOSTSCRIPT_DEVICE — must be a valid Ghostscript device or compression fails
+#   MIN_VALID_COMPRESSED_SIZE — too low accepts corrupt PDFs as valid
 #=============================================================================
 
-readonly OPTIMIZED_MARKER=".optimized.pdf"
-readonly GHOSTSCRIPT_DEVICE="pdfwrite"
-readonly MIN_VALID_COMPRESSED_SIZE=1024
+OPTIMIZED_MARKER=".optimized.pdf"
+GHOSTSCRIPT_DEVICE="pdfwrite"
+MIN_VALID_COMPRESSED_SIZE=1024
 
 #=============================================================================
 # Rate Limiting and Retry
 #=============================================================================
 
-readonly RATE_LIMIT_BACKOFF_SECONDS=300
-readonly MAX_RETRIES=3
-readonly RETRY_DELAY=60
+RATE_LIMIT_BACKOFF_SECONDS=300
+MAX_RETRIES=3
+RETRY_DELAY=60
 
 #=============================================================================
-# Security
+# User Overrides — source ~/.drive-sync/drive-sync.conf if present
 #=============================================================================
 
-readonly ALLOWED_PATHS=("${DRIVE_ROOT}")
+if [[ -f "${DRIVE_SYNC_HOME}/drive-sync.conf" ]]; then
+    source "${DRIVE_SYNC_HOME}/drive-sync.conf"
+    LOCAL_PATH="${DRIVE_ROOT}"
+fi
+
+#=============================================================================
+# Derived Variables
+#=============================================================================
+
+ALLOWED_PATHS=("${DRIVE_ROOT}")
+
+#=============================================================================
+# Lock Down — all variables are now read-only
+#=============================================================================
+
+readonly REMOTE_NAME DRIVE_ROOT LOCAL_PATH STATE_DIR LOG_DIR
+readonly STATE_FILE LOCK_FILE LOG_FILE
+readonly RCLONE_TRANSFERS RCLONE_CHECKERS RCLONE_TPSLIMIT
+readonly RCLONE_TPSLIMIT_BURST RCLONE_TIMEOUT RCLONE_RETRIES
+readonly RCLONE_DRIVE_CHUNK_SIZE
+readonly OPTIMIZED_MARKER GHOSTSCRIPT_DEVICE MIN_VALID_COMPRESSED_SIZE
+readonly RATE_LIMIT_BACKOFF_SECONDS MAX_RETRIES RETRY_DELAY
+readonly ALLOWED_PATHS
 
 #=============================================================================
 # Getters
 #=============================================================================
 
-get_remote_name()                      { echo "$REMOTE_NAME"; }
-get_drive_root()                       { echo "$DRIVE_ROOT"; }
-get_local_path()                       { echo "$LOCAL_PATH"; }
-get_log_file()                         { echo "$LOG_FILE"; }
-get_state_file()                       { echo "$STATE_FILE"; }
-get_lock_file()                        { echo "$LOCK_FILE"; }
-get_optimized_marker()                 { echo "$OPTIMIZED_MARKER"; }
-get_allowed_paths()                    { echo "${ALLOWED_PATHS[@]}"; }
-get_max_retries()                      { echo "$MAX_RETRIES"; }
-get_retry_delay()                      { echo "$RETRY_DELAY"; }
-get_rate_limit_backoff()               { echo "$RATE_LIMIT_BACKOFF_SECONDS"; }
-get_min_valid_compressed_size()        { echo "$MIN_VALID_COMPRESSED_SIZE"; }
+get_version()                           { echo "$VERSION"; }
+get_remote_name()                       { echo "$REMOTE_NAME"; }
+get_drive_root()                        { echo "$DRIVE_ROOT"; }
+get_local_path()                        { echo "$LOCAL_PATH"; }
+get_log_file()                          { echo "$LOG_FILE"; }
+get_state_file()                        { echo "$STATE_FILE"; }
+get_lock_file()                         { echo "$LOCK_FILE"; }
+get_optimized_marker()                  { echo "$OPTIMIZED_MARKER"; }
+get_allowed_paths()                     { echo "${ALLOWED_PATHS[@]}"; }
+get_max_retries()                       { echo "$MAX_RETRIES"; }
+get_retry_delay()                       { echo "$RETRY_DELAY"; }
+get_rate_limit_backoff()                { echo "$RATE_LIMIT_BACKOFF_SECONDS"; }
+get_min_valid_compressed_size()         { echo "$MIN_VALID_COMPRESSED_SIZE"; }

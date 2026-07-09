@@ -14,8 +14,8 @@
 #=============================================================================
 
 show_help() {
-    cat << 'EOF'
-drive_sync v1.0.0 — Simple Google Drive sync with PDF compression
+    cat << EOF
+drive_sync v${VERSION} — Simple Google Drive sync with PDF compression
 
 USAGE:
   drive_sync.sh [COMMAND] [OPTIONS]
@@ -97,7 +97,7 @@ show_status() {
     local optimized_marker="$5"
 
     echo ""
-    echo "📁 drive_sync v1.0.0"
+    echo "📁 drive_sync v${VERSION}"
     echo "─────────────────────────"
 
     echo "📂 Local: $local_path"

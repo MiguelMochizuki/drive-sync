@@ -1,0 +1,4 @@
+dist/
+
+# Service data directory — user's runtime state, not source
+.drive-sync/

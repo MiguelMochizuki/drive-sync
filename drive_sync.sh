@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 #
-# drive_sync.sh — Google Drive Sync Manager v1.0.0
+# drive_sync.sh — Google Drive Sync Manager v1.0.1
 #
 # Safe, modular bidirectional sync with optional PDF compression.
 # Originals are ALWAYS preserved if compression fails.
+# Service data lives in ~/.drive-sync/, not in the synced directory.
 #
 # Usage:
 #   ./drive_sync.sh [command] [options]
@@ -227,7 +228,7 @@ main() {
         case "$1" in
             -n|--dry-run) dry_run="true"; shift ;;
             -f|--force)   force="true"; shift ;;
-            -v|--version) echo "drive_sync version 1.0.0"; exit 0 ;;
+            -v|--version) echo "drive_sync version ${VERSION}"; exit 0 ;;
             -h|--help)    show_help; exit 0 ;;
             *) echo "Unknown option: $1"; show_help; exit 1 ;;
         esac
