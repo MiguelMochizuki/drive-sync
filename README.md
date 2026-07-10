@@ -60,10 +60,10 @@ This removes the wrapper from `/usr/local/bin/` and the sources from
 If you prefer not to use make:
 
 1. Clone the repository
-2. Make scripts executable: `chmod +x drive_sync.sh lib/*.sh`
+2. Make scripts executable: `chmod +x drive-sync.sh lib/*.sh`
 3. Configure rclone: `rclone config`
 4. Configure defaults: `cp lib/config.sh ~/.drive-sync/drive-sync.conf`
-5. Run directly: `./drive_sync.sh sync`
+5. Run directly: `./drive-sync.sh sync`
 
 ## Usage
 
@@ -161,7 +161,7 @@ Your `~/drive` stays clean with only your files.
 
 The tool consists of 9 modular components:
 
-1. **`drive_sync.sh`** - Main entry point and sync orchestrator
+1. **`drive-sync.sh`** - Main entry point and sync orchestrator
 2. **`lib/cli.sh`** - Command-line interface, help text, and status display
 3. **`lib/sync_ops.sh`** - Core sync logic via rclone wrappers
 4. **`lib/compression.sh`** - PDF compression with safety guarantees and binary size formatting
@@ -213,7 +213,7 @@ that retries won't fix.
   - macOS: `brew install ghostscript`
 
 **"Permission denied"**
-- Make scripts executable: `chmod +x drive_sync.sh lib/*.sh`
+- Make scripts executable: `chmod +x drive-sync.sh lib/*.sh`
 
 **"bc not found"**
 - Install bc for precise calculations:

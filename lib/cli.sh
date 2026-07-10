@@ -18,7 +18,7 @@ show_help() {
 drive_sync v${VERSION} — Simple Google Drive sync with PDF compression
 
 USAGE:
-  drive_sync.sh [COMMAND] [OPTIONS]
+  drive-sync.sh [COMMAND] [OPTIONS]
 
 COMMANDS:
   push      Upload local changes (compresses PDFs)
@@ -34,9 +34,9 @@ OPTIONS:
   -v, --version  Show version
 
 EXAMPLES:
-  drive_sync.sh status
-  drive_sync.sh push
-  drive_sync.sh sync -n
+  drive-sync.sh status
+  drive-sync.sh push
+  drive-sync.sh sync -n
 EOF
 }
 
@@ -134,7 +134,7 @@ show_status() {
 
         if [[ $unoptimized_pdfs -gt 0 ]]; then
             echo ""
-            echo "💡 Run: drive_sync.sh push"
+            echo "💡 Run: drive-sync.sh push"
         fi
     fi
 
