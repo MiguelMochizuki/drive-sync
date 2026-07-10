@@ -217,6 +217,14 @@ main() {
 
     [[ $# -eq 0 ]] && { show_help; exit 1; }
 
+    if [[ "$1" == -* ]]; then
+        case "$1" in
+            -v|--version) echo "drive_sync version ${VERSION}"; exit 0 ;;
+            -h|--help)    show_help; exit 0 ;;
+            *) echo "Unknown option: $1"; show_help; exit 1 ;;
+        esac
+    fi
+
     init_logging "$log_file"
     init_state "$state_file" "$lock_file"
     validate_environment "$log_file" "$remote_name"
