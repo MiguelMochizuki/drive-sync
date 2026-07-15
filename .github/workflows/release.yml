@@ -1,0 +1,31 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create release artifact
+        run: |
+          mkdir -p release
+          cp drive-sync.sh release/
+          cp -r lib release/
+          tar -czf drive-sync.tar.gz -C release .
+          rm -rf release
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          body_path: CHANGELOG.md
+          files: drive-sync.tar.gz
+          fail_on_unmatched_files: false
