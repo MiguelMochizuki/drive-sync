@@ -21,11 +21,17 @@ jobs:
           tar -czf drive-sync.tar.gz -C release .
           rm -rf release
 
+      - name: Generate release body
+        run: |
+          echo "## Release ${{ github.ref_name }}" > release_body.md
+          echo "" >> release_body.md
+          echo "See the [commit log](https://github.com/${{ github.repository }}/commits/${{ github.ref_name }}) for details." >> release_body.md
+
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           name: ${{ github.ref_name }}
           tag_name: ${{ github.ref_name }}
-          body_path: CHANGELOG.md
+          body_path: release_body.md
           files: drive-sync.tar.gz
           fail_on_unmatched_files: false
