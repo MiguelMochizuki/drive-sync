@@ -111,7 +111,7 @@ compress_pdf() {
     log_info "$log_file" "Compressing: $(basename "$validated_path") ($size_human)"
 
     local optimized_file="${validated_path%.pdf}${optimized_marker}"
-    local temp_output="${optimized_file}.tmp.$$"
+    local temp_output="${optimized_file}.tmp.$$.pdf"
 
     if gs -sDEVICE="$gs_device" \
           -dPDFSETTINGS=/printer \
