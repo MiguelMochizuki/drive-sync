@@ -50,3 +50,9 @@ teardown() {
     run show_status "$LOG_FILE" "$STATE_FILE" "drive:" "$LOCAL_PATH" ".optimized.pdf"
     [[ "$output" == *"2026-01-01T00:00:00+00:00"* ]]
 }
+
+@test "show_status reports total size using format_size units" {
+    make_pdf_fixture "$LOCAL_PATH/a.pdf" 2097152
+    run show_status "$LOG_FILE" "$STATE_FILE" "drive:" "$LOCAL_PATH" ".optimized.pdf"
+    [[ "$output" =~ Size:\ [0-9]+(\.[0-9]+)?\ (B|KiB|MiB|GiB) ]]
+}

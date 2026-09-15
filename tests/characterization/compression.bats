@@ -92,3 +92,11 @@ teardown() {
     [ "$status" -eq 0 ]
     [[ "$output" == *"All PDFs are already optimized"* ]]
 }
+
+@test "compress_drive_pdfs logs total space saved on a successful batch compression" {
+    make_pdf_fixture "$LOCAL_PATH/big.pdf" 50000
+    MOCK_GS_BEHAVIOR="smaller" run compress_drive_pdfs "$LOG_FILE" "$LOCAL_PATH" \
+        ".optimized.pdf" "$STATE_FILE" "$LOCK_FILE" "pdfwrite" 1024 "$LOCAL_PATH"
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ Total\ space\ saved:\ [0-9]+(\.[0-9]+)?\ (B|KiB|MiB|GiB) ]]
+}
