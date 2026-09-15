@@ -82,7 +82,7 @@ teardown() {
     MOCK_GS_BEHAVIOR="fail" run compress_drive_pdfs "$LOG_FILE" "$LOCAL_PATH" \
         ".optimized.pdf" "$STATE_FILE" "$LOCK_FILE" "pdfwrite" 1024 "$LOCAL_PATH"
     [ "$status" -eq 1 ]
-    [[ "$output" == *"Failed (originals preserved): 2 files"* ]]
+    grep -q "Failed (originals preserved): 2 files" "$LOG_FILE"
 }
 
 @test "compress_drive_pdfs skips files already carrying the optimized marker" {
@@ -90,7 +90,7 @@ teardown() {
     run compress_drive_pdfs "$LOG_FILE" "$LOCAL_PATH" ".optimized.pdf" \
         "$STATE_FILE" "$LOCK_FILE" "pdfwrite" 1024 "$LOCAL_PATH"
     [ "$status" -eq 0 ]
-    [[ "$output" == *"All PDFs are already optimized"* ]]
+    grep -q "All PDFs are already optimized" "$LOG_FILE"
 }
 
 @test "compress_drive_pdfs logs total space saved on a successful batch compression" {
@@ -98,5 +98,5 @@ teardown() {
     MOCK_GS_BEHAVIOR="smaller" run compress_drive_pdfs "$LOG_FILE" "$LOCAL_PATH" \
         ".optimized.pdf" "$STATE_FILE" "$LOCK_FILE" "pdfwrite" 1024 "$LOCAL_PATH"
     [ "$status" -eq 0 ]
-    [[ "$output" =~ Total\ space\ saved:\ [0-9]+(\.[0-9]+)?\ (B|KiB|MiB|GiB) ]]
+    grep -Eq "Total space saved: [0-9]+(\.[0-9]+)? (B|KiB|MiB|GiB)" "$LOG_FILE"
 }
