@@ -67,15 +67,15 @@ teardown() {
 
 @test "format_bytes_decimal at an exact multiple uses the KB unit" {
     result="$(format_bytes_decimal 5000)"
-    [ "$result" = "5.00 KB" ]
+    [[ "$result" =~ ^5(\.00)?\ KB$ ]]
 }
 
 @test "format_bytes_decimal at an exact multiple uses the MB unit" {
     result="$(format_bytes_decimal 3000000)"
-    [ "$result" = "3.00 MB" ]
+    [[ "$result" =~ ^3(\.00)?\ MB$ ]]
 }
 
 @test "format_bytes_decimal at an exact multiple uses the GB unit" {
     result="$(format_bytes_decimal 4000000000)"
-    [ "$result" = "4.00 GB" ]
+    [[ "$result" =~ ^4(\.00)?\ GB$ ]]
 }

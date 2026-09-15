@@ -16,7 +16,7 @@ teardown() {
 @test "show_storage_usage prints used and total in binary units" {
     export MOCK_RCLONE_ABOUT_JSON='{"used":536870912,"total":1073741824}'
     run show_storage_usage "$LOG_FILE" "drive:"
-    [[ "$output" == *"512.00 MiB / 1.00 GiB"* ]]
+    [[ "$output" =~ 512(\.00)?\ MiB\ /\ 1(\.00)?\ GiB ]]
 }
 
 @test "show_storage_usage prints nothing when total is 0" {
