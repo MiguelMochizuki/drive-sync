@@ -4,7 +4,7 @@ USER_BIN_DIR = $(HOME)/.local/bin
 SCRIPT_NAME  = drive-sync
 SOURCE_DIR   = $(shell pwd)
 
-.PHONY: install install-user uninstall
+.PHONY: install install-user uninstall test
 
 install:
 	sudo mkdir -p $(LIB_DIR)
@@ -34,3 +34,10 @@ uninstall:
 	-sudo rm -f $(BIN_DIR)/$(SCRIPT_NAME)
 	-rm -f $(USER_BIN_DIR)/$(SCRIPT_NAME)
 	@echo "✅ Removed $(SCRIPT_NAME)"
+
+test:
+	@command -v bats >/dev/null 2>&1 || { \
+		echo "bats-core not found. Install: https://github.com/bats-core/bats-core#installation" >&2; \
+		exit 1; \
+	}
+	bats -r tests

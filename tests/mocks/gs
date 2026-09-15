@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# tests/mocks/gs: fake Ghostscript for tests. Never touches a real PDF.
+#
+# Behavior driven by MOCK_GS_BEHAVIOR, default "smaller":
+#   smaller:      writes an output file at half the input size
+#   no-reduction: writes an output file the same size as the input
+#   too-small:    writes a 100 byte output file
+#   fail:         exits 1, writes nothing
+#
+# Reads -sOutputFile=<path> and the trailing input-file argument out of
+# argv, matching how compress_pdf in lib/compression.sh invokes gs.
+
+set -euo pipefail
+
+output_file=""
+input_file=""
+
+for arg in "$@"; do
+    case "$arg" in
+        -sOutputFile=*)
+            output_file="${arg#-sOutputFile=}"
+            ;;
+        -*)
+            ;;
+        *)
+            input_file="$arg"
+            ;;
+    esac
+done
+
+behavior="${MOCK_GS_BEHAVIOR:-smaller}"
+
+if [[ "$behavior" == "fail" ]]; then
+    exit 1
+fi
+
+input_size=$(stat -c%s "$input_file" 2>/dev/null || stat -f%z "$input_file")
+
+case "$behavior" in
+    smaller)
+        output_size=$((input_size / 2))
+        [[ $output_size -lt 1 ]] && output_size=1
+        ;;
+    no-reduction)
+        output_size="$input_size"
+        ;;
+    too-small)
+        output_size=100
+        ;;
+esac
+
+head -c "$output_size" /dev/zero > "$output_file"
+exit 0

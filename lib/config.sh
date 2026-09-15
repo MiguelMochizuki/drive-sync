@@ -74,6 +74,16 @@ MAX_RETRIES=3
 RETRY_DELAY=60
 
 #=============================================================================
+# Exit Codes (see docs/CONTRACT.md)
+#=============================================================================
+
+readonly EX_OK=0
+readonly EX_FAILURE=1
+readonly EX_USAGE=2
+readonly EX_UNAVAILABLE=69
+readonly EX_TEMPFAIL=75
+
+#=============================================================================
 # User Overrides — source ~/.drive-sync/drive-sync.conf if present
 #=============================================================================
 
