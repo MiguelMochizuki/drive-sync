@@ -1,15 +1,26 @@
 #!/usr/bin/env bash
 #
-# logging.sh — Structured logging with automatic rotation
+# logging.sh: structured logging with automatic rotation and severity
+# based console routing.
 #
-# This module provides leveled logging (INFO, WARNING, ERROR, SUCCESS) with
-# automatic file rotation at 10 MB. All logs include ISO 8601 timestamps.
+# ERROR and WARNING always reach stderr. INFO and SUCCESS reach the
+# console only when VERBOSE is "true". Every level always reaches the
+# log file regardless of VERBOSE. See docs/CONTRACT.md.
 
 [[ "${BASH_SOURCE[0]}" == "${0}" ]] && {
     echo "This script should be sourced, not executed directly" >&2
     exit 1
 }
 
+VERBOSE="${VERBOSE:-false}"
+
+# Roll the log file over to .1 through .5 once it exceeds 10 MB.
+#
+# Parameters:
+#   log_file: path to the active log file
+#
+# Returns: none. Creates the log directory and an empty log file if one
+#   does not already exist.
 init_logging() {
     local log_file="$1"
     local log_dir
@@ -31,6 +42,16 @@ init_logging() {
     fi
 }
 
+# Write one timestamped line to the log file, and to the console when
+# the level warrants it.
+#
+# Parameters:
+#   log_file: path to the active log file
+#   level: one of ERROR, WARNING, INFO, SUCCESS
+#   message: remaining arguments, joined with spaces
+#
+# Returns: none. ERROR and WARNING always print to stderr. INFO and
+#   SUCCESS print to stdout only when VERBOSE is "true".
 _log_write() {
     local log_file="$1"
     local level="$2"
@@ -38,28 +59,72 @@ _log_write() {
     local message="$*"
     local timestamp
     timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    local line="[${timestamp}] [${level}] ${message}"
 
-    echo "[${timestamp}] [${level}] ${message}" | tee -a "$log_file"
+    echo "$line" >> "$log_file"
+
+    case "$level" in
+        ERROR|WARNING)
+            echo "$line" >&2
+            ;;
+        INFO|SUCCESS)
+            if [[ "$VERBOSE" == "true" ]]; then
+                echo "$line"
+            fi
+            ;;
+    esac
+
+    return 0
 }
 
+# Log an ERROR line. Always reaches stderr and the log file.
+#
+# Parameters:
+#   f: path to the active log file
+#   message: remaining arguments, joined with spaces
+#
+# Returns: none.
 log_error() {
     local f="$1"
     shift
     _log_write "$f" "ERROR" "$@"
 }
 
+# Log a WARNING line. Always reaches stderr and the log file.
+#
+# Parameters:
+#   f: path to the active log file
+#   message: remaining arguments, joined with spaces
+#
+# Returns: none.
 log_warning() {
     local f="$1"
     shift
     _log_write "$f" "WARNING" "$@"
 }
 
+# Log an INFO line. Always reaches the log file; reaches stdout only
+# when VERBOSE is "true".
+#
+# Parameters:
+#   f: path to the active log file
+#   message: remaining arguments, joined with spaces
+#
+# Returns: none.
 log_info() {
     local f="$1"
     shift
     _log_write "$f" "INFO" "$@"
 }
 
+# Log a SUCCESS line. Always reaches the log file; reaches stdout only
+# when VERBOSE is "true".
+#
+# Parameters:
+#   f: path to the active log file
+#   message: remaining arguments, joined with spaces
+#
+# Returns: none.
 log_success() {
     local f="$1"
     shift
