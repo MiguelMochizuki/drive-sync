@@ -4,15 +4,13 @@ load '../test_helper'
 
 setup() {
     common_setup
+    source "$REPO_ROOT/lib/config.sh"
     source "$REPO_ROOT/lib/utils.sh"
     source "$REPO_ROOT/lib/logging.sh"
     source "$REPO_ROOT/lib/state.sh"
     source "$REPO_ROOT/lib/limit.sh"
     source "$REPO_ROOT/lib/sync_ops.sh"
 
-    LOG_FILE="$TEST_TMP_DIR/test.log"
-    STATE_FILE="$TEST_TMP_DIR/state.json"
-    LOCK_FILE="$TEST_TMP_DIR/state.lock"
     init_state "$STATE_FILE" "$LOCK_FILE"
 }
 
