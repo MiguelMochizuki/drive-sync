@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# tests/mocks/rclone: fake rclone for tests. Never touches the network.
+#
+# sync: exit code driven by MOCK_RCLONE_EXIT_SEQUENCE, a comma separated
+#   list. One value is consumed per call to "sync", tracked with a
+#   counter file in MOCK_STATE_DIR. Once the list is exhausted, the last
+#   value repeats. Defaults to "0" (always succeed).
+# about --json: prints MOCK_RCLONE_ABOUT_JSON (default a zeroed quota),
+#   exits 0, unless MOCK_RCLONE_ABOUT_EXIT is set to a nonzero value.
+# about (no --json): exits MOCK_RCLONE_ABOUT_EXIT, default 0.
+# listremotes: prints MOCK_RCLONE_REMOTES, default "drive:".
+# cleanup, cache: always exit 0.
+#
+# Every invocation appends its full argv to MOCK_STATE_DIR/rclone_calls.log.
+
+set -euo pipefail
+
+state_dir="${MOCK_STATE_DIR:?MOCK_STATE_DIR not set}"
+calls_log="$state_dir/rclone_calls.log"
+count_file="$state_dir/rclone_call_count"
+
+printf '%s\n' "$*" >> "$calls_log"
+
+subcommand="${1:-}"
+
+case "$subcommand" in
+    sync)
+        sequence="${MOCK_RCLONE_EXIT_SEQUENCE:-0}"
+        IFS=',' read -r -a codes <<< "$sequence"
+
+        count=0
+        [[ -f "$count_file" ]] && count=$(<"$count_file")
+        count=$((count + 1))
+        printf '%s\n' "$count" > "$count_file"
+
+        index=$((count - 1))
+        if [[ $index -ge ${#codes[@]} ]]; then
+            index=$((${#codes[@]} - 1))
+        fi
+
+        exit "${codes[$index]}"
+        ;;
+    about)
+        if [[ -n "${MOCK_RCLONE_ABOUT_EXIT:-}" && "${MOCK_RCLONE_ABOUT_EXIT}" != "0" ]]; then
+            exit "$MOCK_RCLONE_ABOUT_EXIT"
+        fi
+        if [[ "$*" == *"--json"* ]]; then
+            if [[ -n "${MOCK_RCLONE_ABOUT_JSON:-}" ]]; then
+                printf '%s\n' "$MOCK_RCLONE_ABOUT_JSON"
+            else
+                printf '%s\n' '{"used":0,"total":0}'
+            fi
+        fi
+        exit 0
+        ;;
+    listremotes)
+        printf '%s\n' "${MOCK_RCLONE_REMOTES:-drive:}"
+        exit 0
+        ;;
+    cleanup|cache)
+        exit 0
+        ;;
+    *)
+        printf 'mock rclone: unhandled subcommand: %s\n' "$subcommand" >&2
+        exit 1
+        ;;
+esac
