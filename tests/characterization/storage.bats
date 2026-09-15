@@ -4,6 +4,7 @@ load '../test_helper'
 
 setup() {
     common_setup
+    source "$REPO_ROOT/lib/utils.sh"
     source "$REPO_ROOT/lib/logging.sh"
     source "$REPO_ROOT/lib/storage.sh"
     LOG_FILE="$TEST_TMP_DIR/test.log"
