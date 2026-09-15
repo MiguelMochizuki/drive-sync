@@ -30,6 +30,9 @@ teardown() {
     [[ "$output" == *"USAGE:"* ]]
 }
 
+# NOTE: these pin TODAY's exit 1 for usage errors. docs/CONTRACT.md
+# specifies exit 2 (EX_USAGE) for usage errors; a later phase changes
+# this and updates these tests in its own commit.
 @test "no arguments exits 1 and prints usage today" {
     run "$REPO_ROOT/drive-sync.sh"
     [ "$status" -eq 1 ]

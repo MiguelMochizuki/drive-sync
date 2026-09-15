@@ -1,5 +1,7 @@
 #!/usr/bin/env bats
 
+bats_require_minimum_version 1.5.0
+
 load '../test_helper'
 
 setup() {
@@ -33,26 +35,34 @@ teardown() {
     grep -q "existing line" "$LOG_FILE"
 }
 
+# NOTE: these pin TODAY's behavior where every level is tee'd to
+# stdout. docs/CONTRACT.md specifies ERROR/WARNING to stderr always,
+# INFO/SUCCESS silent by default. A later phase changes this and
+# updates these tests in its own commit.
 @test "log_error writes to the log file and to stdout" {
-    run log_error "$LOG_FILE" "boom"
+    run --separate-stderr log_error "$LOG_FILE" "boom"
     [[ "$output" == *"[ERROR] boom"* ]]
+    [ -z "$stderr" ]
     grep -q "\[ERROR\] boom" "$LOG_FILE"
 }
 
 @test "log_info writes to the log file and to stdout" {
-    run log_info "$LOG_FILE" "hello"
+    run --separate-stderr log_info "$LOG_FILE" "hello"
     [[ "$output" == *"[INFO] hello"* ]]
+    [ -z "$stderr" ]
     grep -q "\[INFO\] hello" "$LOG_FILE"
 }
 
 @test "log_success writes to the log file and to stdout" {
-    run log_success "$LOG_FILE" "done"
+    run --separate-stderr log_success "$LOG_FILE" "done"
     [[ "$output" == *"[SUCCESS] done"* ]]
+    [ -z "$stderr" ]
     grep -q "\[SUCCESS\] done" "$LOG_FILE"
 }
 
 @test "log_warning writes to the log file and to stdout" {
-    run log_warning "$LOG_FILE" "careful"
+    run --separate-stderr log_warning "$LOG_FILE" "careful"
     [[ "$output" == *"[WARNING] careful"* ]]
+    [ -z "$stderr" ]
     grep -q "\[WARNING\] careful" "$LOG_FILE"
 }
