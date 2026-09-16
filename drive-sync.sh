@@ -236,6 +236,7 @@ main() {
         case "$1" in
             -n|--dry-run) dry_run="true"; shift ;;
             -f|--force)   force="true"; shift ;;
+            --verbose)    export VERBOSE="true"; shift ;;
             -v|--version) echo "drive_sync version ${VERSION}"; exit 0 ;;
             -h|--help)    show_help; exit 0 ;;
             *) echo "Unknown option: $1"; show_help; exit 1 ;;
