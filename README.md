@@ -77,14 +77,20 @@ drive-sync status       # Show sync status and storage usage
 drive-sync ratelimit    # Manual rate limit recovery
 ```
 
+`pull` only adds and updates local files — it never deletes anything
+locally, even if a file was removed on Drive. `push` mirrors your local
+directory to Drive, including deletions. Work happens locally, then
+`push` sends it.
+
 ### Options
 
 | Flag | Description |
 |---|---|
 | `-n`, `--dry-run` | Preview changes without syncing |
 | `-f`, `--force` | Skip confirmations |
+| `-v`, `--verbose` | Show detailed progress (INFO/SUCCESS lines) |
 | `-h`, `--help` | Show help text |
-| `-v`, `--version` | Show version |
+| `-V`, `--version` | Show version |
 
 ### Sync Process
 
@@ -195,6 +201,33 @@ When Google Drive API rate limits are encountered:
 
 Distinguishes temporary errors (rclone exit 5/6) from fatal errors (exit 7)
 that retries won't fix.
+
+## Exit Codes
+
+| Code | Meaning |
+|---|---|
+| `0` | Success |
+| `1` | General or unspecified failure (defensive fallback, should rarely fire) |
+| `2` | Usage error — unknown command, unknown flag, or no arguments given |
+| `69` | Resource unavailable — fatal rclone error, or environment validation failure (missing dependency, remote not configured) |
+| `75` | Temporary failure — retries exhausted after only transient or rate-limit errors |
+
+See [`docs/CONTRACT.md`](docs/CONTRACT.md) for the full exit-code and
+console I/O contract, including which stream (stdout/stderr) each log
+level writes to and how `-v`/`--verbose` affects it.
+
+## Testing
+
+```bash
+make test
+```
+
+Requires [bats-core](https://github.com/bats-core/bats-core) >= 1.5.0.
+Only `rclone` and `gs` are mocked (`tests/mocks/`) — `jq` and `flock`
+run for real. Tests live under:
+
+- `tests/characterization/` — pins existing, contracted behavior
+- `tests/unit/` — covers individual functions and edge cases
 
 ## Troubleshooting
 
