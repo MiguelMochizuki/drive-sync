@@ -15,6 +15,12 @@
 # Rclone Flag Builder
 #=============================================================================
 
+# Build the shared rclone flag string for both push and pull.
+#
+# Parameters:
+#   dry_run: "true" to append --dry-run, anything else to omit it
+#
+# Returns: the flag string on stdout.
 build_rclone_flags() {
     local dry_run="$1"
 
@@ -36,6 +42,20 @@ build_rclone_flags() {
 # Sync Operations
 #=============================================================================
 
+# Upload local_path to remote_name with rclone sync, updating state on
+# success or failure.
+#
+# Parameters:
+#   log_file: path to the active log file
+#   local_path: directory to upload
+#   remote_name: the configured rclone remote
+#   state_file: path to state.json
+#   lock_file: path to the lock file
+#   dry_run: "true" to preview without transferring, default "false"
+#
+# Returns: 0 on success; 2 on a temporary/rate-limit error (rclone exit
+#   5 or 6); 3 on a fatal error (rclone exit 7); 1 on any other
+#   nonzero exit.
 sync_to_drive() {
     local log_file="$1"
     local local_path="$2"
@@ -71,6 +91,17 @@ sync_to_drive() {
     fi
 }
 
+# Download remote_name to local_path with rclone sync.
+#
+# Parameters:
+#   log_file: path to the active log file
+#   local_path: directory to download into
+#   remote_name: the configured rclone remote
+#   dry_run: "true" to preview without transferring, default "false"
+#
+# Returns: 0 on success; 2 on a temporary/rate-limit error; 3 on a
+#   fatal error; 1 on any other nonzero exit. Does not touch state,
+#   since only push tracks last_sync/sync_status today.
 sync_from_drive() {
     local log_file="$1"
     local local_path="$2"
