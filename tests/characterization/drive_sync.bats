@@ -30,25 +30,22 @@ teardown() {
     [[ "$output" == *"USAGE:"* ]]
 }
 
-# NOTE: these pin TODAY's exit 1 for usage errors. docs/CONTRACT.md
-# specifies exit 2 (EX_USAGE) for usage errors; a later phase changes
-# this and updates these tests in its own commit.
-@test "no arguments exits 1 and prints usage today" {
-    run "$REPO_ROOT/drive-sync.sh"
-    [ "$status" -eq 1 ]
-    [[ "$output" == *"USAGE:"* ]]
+@test "no arguments exits 2 and prints usage to stderr" {
+    run --separate-stderr "$REPO_ROOT/drive-sync.sh"
+    [ "$status" -eq 2 ]
+    [[ "$stderr" == *"USAGE:"* ]]
 }
 
-@test "an unknown command exits 1 and names the command" {
-    run "$REPO_ROOT/drive-sync.sh" bogus
-    [ "$status" -eq 1 ]
-    [[ "$output" == *"Unknown command: bogus"* ]]
+@test "an unknown command exits 2 and prints usage to stderr" {
+    run --separate-stderr "$REPO_ROOT/drive-sync.sh" bogus
+    [ "$status" -eq 2 ]
+    [[ "$stderr" == *"USAGE:"* ]]
 }
 
-@test "an unknown flag exits 1 and names the flag" {
-    run "$REPO_ROOT/drive-sync.sh" push --bogus
-    [ "$status" -eq 1 ]
-    [[ "$output" == *"Unknown option: --bogus"* ]]
+@test "an unknown flag exits 2 and prints usage to stderr" {
+    run --separate-stderr "$REPO_ROOT/drive-sync.sh" push --bogus
+    [ "$status" -eq 2 ]
+    [[ "$stderr" == *"USAGE:"* ]]
 }
 
 @test "status runs end to end against the mocked remote" {
