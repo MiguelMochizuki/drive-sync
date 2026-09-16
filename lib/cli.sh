@@ -41,51 +41,6 @@ EOF
 }
 
 #=============================================================================
-# Formatting Helpers
-#=============================================================================
-
-format_size() {
-    local bytes="$1"
-    local unit="B"
-    local value="$bytes"
-
-    if [[ $bytes -ge 1073741824 ]]; then
-        if command -v bc &> /dev/null; then
-            value=$(echo "scale=2; $bytes / 1073741824" | bc)
-            unit="GiB"
-        else
-            value=$((bytes / 1073741824))
-            unit="GiB"
-        fi
-    elif [[ $bytes -ge 1048576 ]]; then
-        if command -v bc &> /dev/null; then
-            value=$(echo "scale=2; $bytes / 1048576" | bc)
-            unit="MiB"
-        else
-            value=$((bytes / 1048576))
-            unit="MiB"
-        fi
-    elif [[ $bytes -ge 1024 ]]; then
-        if command -v bc &> /dev/null; then
-            value=$(echo "scale=2; $bytes / 1024" | bc)
-            unit="KiB"
-        else
-            value=$((bytes / 1024))
-            unit="KiB"
-        fi
-    fi
-
-    if [[ "$value" =~ ^([0-9]+)\.([0-9]{1,2})?0*$ ]]; then
-        value="${BASH_REMATCH[1]}"
-        if [[ -n "${BASH_REMATCH[2]}" ]]; then
-            value="${value}.${BASH_REMATCH[2]}"
-        fi
-    fi
-
-    echo "${value} ${unit}"
-}
-
-#=============================================================================
 # Status Display
 #=============================================================================
 

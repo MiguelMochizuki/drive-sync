@@ -35,34 +35,30 @@ teardown() {
     grep -q "existing line" "$LOG_FILE"
 }
 
-# NOTE: these pin TODAY's behavior where every level is tee'd to
-# stdout. docs/CONTRACT.md specifies ERROR/WARNING to stderr always,
-# INFO/SUCCESS silent by default. A later phase changes this and
-# updates these tests in its own commit.
-@test "log_error writes to the log file and to stdout" {
+@test "log_error goes to stderr, never stdout" {
     run --separate-stderr log_error "$LOG_FILE" "boom"
-    [[ "$output" == *"[ERROR] boom"* ]]
-    [ -z "$stderr" ]
+    [ -z "$output" ]
+    [[ "$stderr" == *"[ERROR] boom"* ]]
     grep -q "\[ERROR\] boom" "$LOG_FILE"
 }
 
-@test "log_info writes to the log file and to stdout" {
+@test "log_warning goes to stderr, never stdout" {
+    run --separate-stderr log_warning "$LOG_FILE" "careful"
+    [ -z "$output" ]
+    [[ "$stderr" == *"[WARNING] careful"* ]]
+    grep -q "\[WARNING\] careful" "$LOG_FILE"
+}
+
+@test "log_info is silent on the console by default" {
     run --separate-stderr log_info "$LOG_FILE" "hello"
-    [[ "$output" == *"[INFO] hello"* ]]
+    [ -z "$output" ]
     [ -z "$stderr" ]
     grep -q "\[INFO\] hello" "$LOG_FILE"
 }
 
-@test "log_success writes to the log file and to stdout" {
+@test "log_success is silent on the console by default" {
     run --separate-stderr log_success "$LOG_FILE" "done"
-    [[ "$output" == *"[SUCCESS] done"* ]]
+    [ -z "$output" ]
     [ -z "$stderr" ]
     grep -q "\[SUCCESS\] done" "$LOG_FILE"
-}
-
-@test "log_warning writes to the log file and to stdout" {
-    run --separate-stderr log_warning "$LOG_FILE" "careful"
-    [[ "$output" == *"[WARNING] careful"* ]]
-    [ -z "$stderr" ]
-    grep -q "\[WARNING\] careful" "$LOG_FILE"
 }
