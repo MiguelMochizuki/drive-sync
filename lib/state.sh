@@ -53,7 +53,7 @@ acquire_lock() {
 # Returns: none. Best effort, never fails the caller.
 release_lock() {
     flock -u 200 2>/dev/null || true
-    exec 200>&- 2>/dev/null || true
+    exec 200>&- || true
 }
 
 # Create state.json with its default schema if it does not exist yet.
