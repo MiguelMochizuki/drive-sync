@@ -215,14 +215,18 @@ main() {
     max_retries=$(get_max_retries)
     read -r -a allowed_paths <<< "$(get_allowed_paths)"
 
-    [[ $# -eq 0 ]] && { show_help; exit 1; }
+    [[ $# -eq 0 ]] && { show_usage >&2; exit "$EX_USAGE"; }
 
     if [[ "$1" == -* ]]; then
         case "$1" in
-            -v|--version) echo "drive_sync version ${VERSION}"; exit 0 ;;
+            -V|--version) echo "drive_sync version ${VERSION}"; exit 0 ;;
             -h|--help)    show_help; exit 0 ;;
-            *) echo "Unknown option: $1"; show_help; exit 1 ;;
+            -v|--verbose) export VERBOSE="true" ;;
+            *) show_usage >&2; exit "$EX_USAGE" ;;
         esac
+        [[ "$1" == "-v" || "$1" == "--verbose" ]] || exit 0
+        shift
+        [[ $# -eq 0 ]] && { show_usage >&2; exit "$EX_USAGE"; }
     fi
 
     init_logging "$log_file"
@@ -234,12 +238,12 @@ main() {
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            -n|--dry-run) dry_run="true"; shift ;;
-            -f|--force)   force="true"; shift ;;
-            --verbose)    export VERBOSE="true"; shift ;;
-            -v|--version) echo "drive_sync version ${VERSION}"; exit 0 ;;
-            -h|--help)    show_help; exit 0 ;;
-            *) echo "Unknown option: $1"; show_help; exit 1 ;;
+            -n|--dry-run)  dry_run="true"; shift ;;
+            -f|--force)    force="true"; shift ;;
+            -v|--verbose)  export VERBOSE="true"; shift ;;
+            -V|--version)  echo "drive_sync version ${VERSION}"; exit 0 ;;
+            -h|--help)     show_help; exit 0 ;;
+            *) show_usage >&2; exit "$EX_USAGE" ;;
         esac
     done
 
@@ -260,9 +264,8 @@ main() {
                                     "$lock_file" "$backoff_seconds"
             ;;
         *)
-            echo "Unknown command: $command"
-            show_help
-            exit 1
+            show_usage >&2
+            exit "$EX_USAGE"
             ;;
     esac
 }
