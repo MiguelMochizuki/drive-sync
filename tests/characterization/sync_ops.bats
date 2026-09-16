@@ -69,3 +69,17 @@ teardown() {
     run sync_from_drive "$LOG_FILE" "$TEST_TMP_DIR/local" "drive:" "false"
     [ "$status" -eq 2 ]
 }
+
+@test "sync_from_drive uses rclone copy, never sync, so it never deletes local files" {
+    export MOCK_RCLONE_EXIT_SEQUENCE="0"
+    sync_from_drive "$LOG_FILE" "$TEST_TMP_DIR/local" "drive:" "false"
+    grep -q '^copy ' "$MOCK_STATE_DIR/rclone_calls.log"
+    ! grep -q '^sync ' "$MOCK_STATE_DIR/rclone_calls.log"
+}
+
+@test "sync_to_drive still uses rclone sync, mirroring deletions to the remote" {
+    export MOCK_RCLONE_EXIT_SEQUENCE="0"
+    sync_to_drive "$LOG_FILE" "$TEST_TMP_DIR/local" "drive:" "$STATE_FILE" "$LOCK_FILE" "false"
+    grep -q '^sync ' "$MOCK_STATE_DIR/rclone_calls.log"
+    ! grep -q '^copy ' "$MOCK_STATE_DIR/rclone_calls.log"
+}

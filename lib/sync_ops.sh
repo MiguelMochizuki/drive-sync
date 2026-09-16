@@ -91,7 +91,10 @@ sync_to_drive() {
     fi
 }
 
-# Download remote_name to local_path with rclone sync.
+# Download remote_name to local_path with rclone copy: adds and updates
+# files locally, but never deletes local files absent from the remote.
+# Push (sync_to_drive) mirrors deletions to the remote; pull never
+# mirrors deletions to local — work happens locally, then push sends it.
 #
 # Parameters:
 #   log_file: path to the active log file
@@ -113,7 +116,7 @@ sync_from_drive() {
 
     log_info "$log_file" "Downloading from Google Drive..."
 
-    if rclone sync "$remote_name" "$local_path" $flags; then
+    if rclone copy "$remote_name" "$local_path" $flags; then
         log_success "$log_file" "Download completed successfully"
         return 0
     else

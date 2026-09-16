@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 # tests/mocks/rclone: fake rclone for tests. Never touches the network.
 #
-# sync: exit code driven by MOCK_RCLONE_EXIT_SEQUENCE, a comma separated
-#   list. One value is consumed per call to "sync", tracked with a
-#   counter file in MOCK_STATE_DIR. Once the list is exhausted, the last
-#   value repeats. Defaults to "0" (always succeed).
+# sync, copy: exit code driven by MOCK_RCLONE_EXIT_SEQUENCE, a comma
+#   separated list. One value is consumed per call to "sync" or "copy"
+#   (both share the same counter), tracked with a counter file in
+#   MOCK_STATE_DIR. Once the list is exhausted, the last value repeats.
+#   Defaults to "0" (always succeed). sync_ops.sh uses "sync" for push
+#   (mirrors local to remote, including deletions) and "copy" for pull
+#   (adds/updates only, never deletes local files).
 # about --json: prints MOCK_RCLONE_ABOUT_JSON (default a zeroed quota),
 #   exits 0, unless MOCK_RCLONE_ABOUT_EXIT is set to a nonzero value.
 # about (no --json): exits MOCK_RCLONE_ABOUT_EXIT, default 0.
@@ -24,7 +27,7 @@ printf '%s\n' "$*" >> "$calls_log"
 subcommand="${1:-}"
 
 case "$subcommand" in
-    sync)
+    sync|copy)
         sequence="${MOCK_RCLONE_EXIT_SEQUENCE:-0}"
         IFS=',' read -r -a codes <<< "$sequence"
 
