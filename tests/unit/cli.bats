@@ -32,3 +32,9 @@ teardown() {
     [[ "$output" == *"status"* ]]
     [[ "$output" == *"ratelimit"* ]]
 }
+
+@test "show_help lists correct options with -v/-V" {
+    run show_help
+    [[ "$output" == *"-v, --verbose"* ]]
+    [[ "$output" == *"-V, --version"* ]]
+}
