@@ -15,6 +15,12 @@
 # Rate Limit Detection
 #=============================================================================
 
+# Check whether an rclone exit code is a temporary, retryable error.
+#
+# Parameters:
+#   exit_code: an rclone process exit code
+#
+# Returns: 0 (true) for exit codes 5 and 6; 1 (false) otherwise.
 is_rate_limit_error() {
     local exit_code="$1"
     # Exit code 5 = temporary/retry-able error (HTTP 429, rate limit, transient network)
@@ -24,6 +30,12 @@ is_rate_limit_error() {
     [[ $exit_code -eq 5 ]] || [[ $exit_code -eq 6 ]]
 }
 
+# Check whether an rclone exit code is a fatal, non-retryable error.
+#
+# Parameters:
+#   exit_code: an rclone process exit code
+#
+# Returns: 0 (true) for exit code 7; 1 (false) otherwise.
 is_fatal_error() {
     local exit_code="$1"
     # Exit code 7 = fatal (account suspended, auth revoked); retries won't help
@@ -34,6 +46,17 @@ is_fatal_error() {
 # Rate Limit Recovery
 #=============================================================================
 
+# Wait out a Google Drive rate limit, then probe the connection.
+#
+# Parameters:
+#   log_file: path to the active log file
+#   remote_name: the configured rclone remote
+#   state_file: path to state.json
+#   lock_file: path to the lock file
+#   backoff_seconds: how long to sleep before probing again
+#
+# Returns: 0 and an incremented rate_limit_recoveries count on a
+#   successful probe; 1 if the probe still fails.
 recover_from_rate_limit() {
     local log_file="$1"
     local remote_name="$2"
