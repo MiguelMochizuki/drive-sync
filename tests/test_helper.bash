@@ -11,6 +11,7 @@
 # setup per file, so the shared logic cannot itself be named setup().
 
 common_setup() {
+    bats_require_minimum_version 1.5.0
     TEST_TMP_DIR="$(mktemp -d)"
     export HOME="$TEST_TMP_DIR/home"
     mkdir -p "$HOME"

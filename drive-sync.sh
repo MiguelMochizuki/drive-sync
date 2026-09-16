@@ -54,13 +54,13 @@ validate_environment() {
     if [[ ${#missing_deps[@]} -gt 0 ]]; then
         log_error "$log_file" "Missing dependencies: ${missing_deps[*]}"
         echo "Install with: sudo apt-get install ${missing_deps[*]}" >&2
-        exit 1
+        exit "$EX_UNAVAILABLE"
     fi
 
     if ! rclone listremotes 2>/dev/null | grep -q "^${remote_name}$"; then
         log_error "$log_file" "Rclone remote '${remote_name}' not configured"
         echo "Run 'rclone config' to configure Google Drive" >&2
-        exit 1
+        exit "$EX_UNAVAILABLE"
     fi
 
     log_info "$log_file" "Environment validation passed"
@@ -94,12 +94,12 @@ handle_sync_result() {
                 return 2
             else
                 log_error "$log_file" "Failed to recover from temporary error"
-                return 1
+                return "$EX_TEMPFAIL"
             fi
             ;;
         3)
             log_error "$log_file" "Fatal error (permanent, retries won't help)"
-            return 1
+            return "$EX_UNAVAILABLE"
             ;;
         *)
             log_error "$log_file" "Sync failed with error $result"
@@ -108,7 +108,7 @@ handle_sync_result() {
                 sleep "$retry_delay"
                 return 2
             else
-                return 1
+                return "$EX_TEMPFAIL"
             fi
             ;;
     esac
@@ -150,21 +150,33 @@ do_sync() {
         local sync_result=0
         case "$direction" in
             push)
-                sync_to_drive "$log_file" "$local_path" "$remote_name" \
-                             "$state_file" "$lock_file" "$dry_run"
-                sync_result=$?
+                if sync_to_drive "$log_file" "$local_path" "$remote_name" \
+                                 "$state_file" "$lock_file" "$dry_run"; then
+                    sync_result=0
+                else
+                    sync_result=$?
+                fi
                 ;;
             pull)
-                sync_from_drive "$log_file" "$local_path" "$remote_name" "$dry_run"
-                sync_result=$?
+                if sync_from_drive "$log_file" "$local_path" "$remote_name" "$dry_run"; then
+                    sync_result=0
+                else
+                    sync_result=$?
+                fi
                 ;;
             sync)
-                sync_from_drive "$log_file" "$local_path" "$remote_name" "$dry_run"
-                local pull_result=$?
+                if sync_from_drive "$log_file" "$local_path" "$remote_name" "$dry_run"; then
+                    local pull_result=0
+                else
+                    local pull_result=$?
+                fi
                 if [[ $pull_result -eq 0 ]]; then
-                    sync_to_drive "$log_file" "$local_path" "$remote_name" \
-                                 "$state_file" "$lock_file" "$dry_run"
-                    sync_result=$?
+                    if sync_to_drive "$log_file" "$local_path" "$remote_name" \
+                                     "$state_file" "$lock_file" "$dry_run"; then
+                        sync_result=0
+                    else
+                        sync_result=$?
+                    fi
                 elif [[ $pull_result -eq 2 ]]; then
                     sync_result=2
                 elif [[ $pull_result -eq 3 ]]; then
@@ -175,21 +187,22 @@ do_sync() {
                 ;;
         esac
 
+        set +e
         handle_sync_result "$log_file" "$remote_name" "$state_file" "$lock_file" \
                           "$backoff_seconds" "$retry_delay" "$sync_result" \
                           "$attempt" "$max_retries"
         local handle_result=$?
+        set -e
 
         case $handle_result in
             0) return 0 ;;
-            1) return 1 ;;
             2) attempt=$((attempt + 1)); continue ;;
-            3) return 1 ;;
+            *) return "$handle_result" ;;
         esac
     done
 
     log_error "$log_file" "Max retries exceeded"
-    return 1
+    return "$EX_TEMPFAIL"
 }
 
 #=============================================================================
@@ -215,14 +228,18 @@ main() {
     max_retries=$(get_max_retries)
     read -r -a allowed_paths <<< "$(get_allowed_paths)"
 
-    [[ $# -eq 0 ]] && { show_help; exit 1; }
+    [[ $# -eq 0 ]] && { show_usage >&2; exit "$EX_USAGE"; }
 
     if [[ "$1" == -* ]]; then
         case "$1" in
-            -v|--version) echo "drive_sync version ${VERSION}"; exit 0 ;;
+            -V|--version) echo "drive_sync version ${VERSION}"; exit 0 ;;
             -h|--help)    show_help; exit 0 ;;
-            *) echo "Unknown option: $1"; show_help; exit 1 ;;
+            -v|--verbose) export VERBOSE="true" ;;
+            *) show_usage >&2; exit "$EX_USAGE" ;;
         esac
+        [[ "$1" == "-v" || "$1" == "--verbose" ]] || exit 0
+        shift
+        [[ $# -eq 0 ]] && { show_usage >&2; exit "$EX_USAGE"; }
     fi
 
     init_logging "$log_file"
@@ -234,11 +251,12 @@ main() {
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            -n|--dry-run) dry_run="true"; shift ;;
-            -f|--force)   force="true"; shift ;;
-            -v|--version) echo "drive_sync version ${VERSION}"; exit 0 ;;
-            -h|--help)    show_help; exit 0 ;;
-            *) echo "Unknown option: $1"; show_help; exit 1 ;;
+            -n|--dry-run)  dry_run="true"; shift ;;
+            -f|--force)    force="true"; shift ;;
+            -v|--verbose)  export VERBOSE="true"; shift ;;
+            -V|--version)  echo "drive_sync version ${VERSION}"; exit 0 ;;
+            -h|--help)     show_help; exit 0 ;;
+            *) show_usage >&2; exit "$EX_USAGE" ;;
         esac
     done
 
@@ -259,9 +277,8 @@ main() {
                                     "$lock_file" "$backoff_seconds"
             ;;
         *)
-            echo "Unknown command: $command"
-            show_help
-            exit 1
+            show_usage >&2
+            exit "$EX_USAGE"
             ;;
     esac
 }
