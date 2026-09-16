@@ -21,5 +21,5 @@ teardown() {
 
 @test "get_version returns the version string" {
     result="$(get_version)"
-    [ "$result" = "1.0.2" ]
+    [ "$result" = "2.0.0" ]
 }
