@@ -13,6 +13,14 @@
 # Storage Quota Display
 #=============================================================================
 
+# Print Google Drive quota usage, in binary units, to the log and console.
+#
+# Parameters:
+#   log_file: path to the active log file
+#   remote_name: the configured rclone remote, for example "drive:"
+#
+# Returns: none. Prints nothing when the quota total is 0 or rclone
+#   about fails; logs a warning in the failure case.
 show_storage_usage() {
     local log_file="$1"
     local remote_name="$2"

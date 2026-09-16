@@ -21,6 +21,23 @@
 # Single File Compression
 #=============================================================================
 
+# Compress one PDF with Ghostscript, or mark it optimized without
+# compressing, per the module's core invariant: the original is never
+# deleted unless compression both succeeds and produces a smaller file.
+#
+# Parameters:
+#   log_file: path to the active log file
+#   optimized_marker: filename suffix marking a file as done, for
+#     example ".optimized.pdf"
+#   gs_device: the Ghostscript output device, for example "pdfwrite"
+#   min_valid_size: minimum acceptable compressed size in bytes
+#   input_file: the PDF to process
+#   allowed_paths: remaining arguments, prefixes validate_path checks against
+#
+# Returns: 0 if the file ends up marked optimized, whether by
+#   compression or because it was already small or already optimal;
+#   1 if compression failed or the input path was invalid, leaving the
+#   original file untouched for a retry on the next run.
 compress_pdf() {
     local log_file="$1"
     local optimized_marker="$2"
@@ -143,6 +160,22 @@ compress_pdf() {
 # Batch Compression
 #=============================================================================
 
+# Compress every PDF under a directory that is not already marked
+# optimized, and report a summary.
+#
+# Parameters:
+#   log_file: path to the active log file
+#   local_path: directory to scan for PDFs
+#   optimized_marker: filename suffix marking a file as done
+#   state_file: path to state.json
+#   lock_file: path to the lock file
+#   gs_device: the Ghostscript output device
+#   min_valid_size: minimum acceptable compressed size in bytes
+#   allowed_paths: remaining arguments, prefixes validate_path checks against
+#
+# Returns: 0 if every PDF ended up optimized; 1 if one or more files
+#   failed compression, in which case those originals are preserved
+#   for the next run.
 compress_drive_pdfs() {
     local log_file="$1"
     local local_path="$2"
@@ -180,7 +213,7 @@ compress_drive_pdfs() {
 
     if [[ $total_files -eq 0 ]]; then
         log_info "$log_file" "All PDFs are already optimized"
-        update_state "$state_file" "$lock_file" "last_compression" "$(date -Iseconds)"
+        update_state "$log_file" "$state_file" "$lock_file" "last_compression" "$(date -Iseconds)"
         return 0
     fi
 
@@ -227,7 +260,7 @@ compress_drive_pdfs() {
 
     log_info "$log_file" "  Time: ${duration}s"
 
-    update_state "$state_file" "$lock_file" "last_compression" "$(date -Iseconds)"
+    update_state "$log_file" "$state_file" "$lock_file" "last_compression" "$(date -Iseconds)"
 
     if [[ $failed -gt 0 ]]; then
         log_warning "$log_file" "$failed files failed compression (originals preserved)"

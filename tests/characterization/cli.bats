@@ -11,7 +11,7 @@ setup() {
     source "$REPO_ROOT/lib/storage.sh"
     source "$REPO_ROOT/lib/cli.sh"
 
-    init_state "$STATE_FILE" "$LOCK_FILE"
+    init_state "$LOG_FILE" "$STATE_FILE" "$LOCK_FILE"
 
     mkdir -p "$LOCAL_PATH"
 
@@ -46,7 +46,7 @@ teardown() {
 }
 
 @test "show_status reflects last_sync from state" {
-    update_state "$STATE_FILE" "$LOCK_FILE" "last_sync" "2026-01-01T00:00:00+00:00"
+    update_state "$LOG_FILE" "$STATE_FILE" "$LOCK_FILE" "last_sync" "2026-01-01T00:00:00+00:00"
     run show_status "$LOG_FILE" "$STATE_FILE" "drive:" "$LOCAL_PATH" ".optimized.pdf"
     [[ "$output" == *"2026-01-01T00:00:00+00:00"* ]]
 }

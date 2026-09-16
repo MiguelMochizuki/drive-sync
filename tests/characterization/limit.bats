@@ -10,7 +10,7 @@ setup() {
     LOG_FILE="$TEST_TMP_DIR/test.log"
     STATE_FILE="$TEST_TMP_DIR/state.json"
     LOCK_FILE="$TEST_TMP_DIR/state.lock"
-    init_state "$STATE_FILE" "$LOCK_FILE"
+    init_state "$LOG_FILE" "$STATE_FILE" "$LOCK_FILE"
 }
 
 teardown() {
