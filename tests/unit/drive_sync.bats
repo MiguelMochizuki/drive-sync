@@ -95,3 +95,20 @@ teardown() {
     run "$REPO_ROOT/drive-sync.sh" status
     [ "$status" -eq 69 ]
 }
+
+@test "push retries twice on temporary errors then succeeds on the third attempt" {
+    export MOCK_RCLONE_EXIT_SEQUENCE="5,5,0"
+    run "$REPO_ROOT/drive-sync.sh" push
+    [ "$status" -eq 0 ]
+    [ "$(wc -l < "$MOCK_STATE_DIR/rclone_calls.log")" -ge 3 ]
+}
+
+@test "push aborts immediately on a fatal error, without retrying" {
+    export MOCK_RCLONE_EXIT_SEQUENCE="7"
+    run "$REPO_ROOT/drive-sync.sh" push
+
+    local sync_calls
+    sync_calls=$(grep -c '^sync ' "$MOCK_STATE_DIR/rclone_calls.log" || true)
+    [ "$status" -eq 69 ]
+    [ "$sync_calls" -eq 1 ]
+}
