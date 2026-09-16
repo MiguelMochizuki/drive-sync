@@ -11,7 +11,7 @@ setup() {
     source "$REPO_ROOT/lib/limit.sh"
     source "$REPO_ROOT/lib/sync_ops.sh"
 
-    init_state "$STATE_FILE" "$LOCK_FILE"
+    init_state "$LOG_FILE" "$STATE_FILE" "$LOCK_FILE"
 }
 
 teardown() {
