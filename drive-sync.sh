@@ -226,7 +226,7 @@ main() {
     fi
 
     init_logging "$log_file"
-    init_state "$state_file" "$lock_file"
+    init_state "$log_file" "$state_file" "$lock_file"
     validate_environment "$log_file" "$remote_name"
 
     command="$1"

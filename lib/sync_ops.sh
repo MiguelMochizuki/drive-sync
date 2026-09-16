@@ -51,21 +51,21 @@ sync_to_drive() {
 
     if rclone sync "$local_path" "$remote_name" $flags; then
         log_success "$log_file" "Upload completed successfully"
-        update_state "$state_file" "$lock_file" "last_sync" "$(date -Iseconds)"
-        update_state "$state_file" "$lock_file" "sync_status" "success"
+        update_state "$log_file" "$state_file" "$lock_file" "last_sync" "$(date -Iseconds)"
+        update_state "$log_file" "$state_file" "$lock_file" "sync_status" "success"
         return 0
     else
         local exit_code=$?
         if is_fatal_error "$exit_code"; then
             log_error "$log_file" "Upload failed with fatal error $exit_code (permanent)"
-            update_state "$state_file" "$lock_file" "sync_status" "failed"
+            update_state "$log_file" "$state_file" "$lock_file" "sync_status" "failed"
             return 3
         elif is_rate_limit_error "$exit_code"; then
             log_warning "$log_file" "Temporary error detected (code $exit_code)"
             return 2
         else
             log_error "$log_file" "Upload failed with code $exit_code"
-            update_state "$state_file" "$lock_file" "sync_status" "failed"
+            update_state "$log_file" "$state_file" "$lock_file" "sync_status" "failed"
             return 1
         fi
     fi

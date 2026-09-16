@@ -56,8 +56,8 @@ recover_from_rate_limit() {
         recovery_count=$(get_state_value "$state_file" "rate_limit_recoveries")
         recovery_count=${recovery_count:-0}
         recovery_count=$((recovery_count + 1))
-        update_state "$state_file" "$lock_file" "rate_limit_recoveries" "$recovery_count"
-        update_state "$state_file" "$lock_file" "last_rate_limit" "$(date -Iseconds)"
+        update_state "$log_file" "$state_file" "$lock_file" "rate_limit_recoveries" "$recovery_count"
+        update_state "$log_file" "$state_file" "$lock_file" "last_rate_limit" "$(date -Iseconds)"
 
         log_success "$log_file" "Rate limit recovery successful (count: $recovery_count)"
         return 0

@@ -180,7 +180,7 @@ compress_drive_pdfs() {
 
     if [[ $total_files -eq 0 ]]; then
         log_info "$log_file" "All PDFs are already optimized"
-        update_state "$state_file" "$lock_file" "last_compression" "$(date -Iseconds)"
+        update_state "$log_file" "$state_file" "$lock_file" "last_compression" "$(date -Iseconds)"
         return 0
     fi
 
@@ -227,7 +227,7 @@ compress_drive_pdfs() {
 
     log_info "$log_file" "  Time: ${duration}s"
 
-    update_state "$state_file" "$lock_file" "last_compression" "$(date -Iseconds)"
+    update_state "$log_file" "$state_file" "$lock_file" "last_compression" "$(date -Iseconds)"
 
     if [[ $failed -gt 0 ]]; then
         log_warning "$log_file" "$failed files failed compression (originals preserved)"
