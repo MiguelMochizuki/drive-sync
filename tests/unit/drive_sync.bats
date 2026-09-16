@@ -77,3 +77,21 @@ teardown() {
     [ "$status" -eq 0 ]
     [[ "$output" == *"Starting PDF optimization"* ]]
 }
+
+@test "a fatal rclone error exits 69, EX_UNAVAILABLE" {
+    export MOCK_RCLONE_EXIT_SEQUENCE="7"
+    run "$REPO_ROOT/drive-sync.sh" push
+    [ "$status" -eq 69 ]
+}
+
+@test "retries exhausted after only temporary errors exits 75, EX_TEMPFAIL" {
+    export MOCK_RCLONE_EXIT_SEQUENCE="5,5,5"
+    run "$REPO_ROOT/drive-sync.sh" push
+    [ "$status" -eq 75 ]
+}
+
+@test "an unconfigured remote exits 69, EX_UNAVAILABLE" {
+    export MOCK_RCLONE_REMOTES="other:"
+    run "$REPO_ROOT/drive-sync.sh" status
+    [ "$status" -eq 69 ]
+}
