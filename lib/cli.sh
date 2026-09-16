@@ -13,6 +13,29 @@
 # Help
 #=============================================================================
 
+# Print a short usage synopsis, for a usage error.
+#
+# Parameters: none.
+#
+# Returns: the synopsis on stdout; callers redirect it to stderr when
+#   used for a usage error, per docs/CONTRACT.md.
+show_usage() {
+    cat << EOF
+USAGE:
+  drive-sync.sh [COMMAND] [OPTIONS]
+
+COMMANDS:
+  push, pull, sync, status, ratelimit
+
+Run 'drive-sync.sh --help' for details.
+EOF
+}
+
+# Print the full help text.
+#
+# Parameters: none.
+#
+# Returns: the help text on stdout.
 show_help() {
     cat << EOF
 drive_sync v${VERSION} — Simple Google Drive sync with PDF compression
