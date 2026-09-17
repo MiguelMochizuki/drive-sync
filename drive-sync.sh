@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# drive-sync.sh — Google Drive Sync Manager v2.0.0
+# drive-sync.sh — Google Drive Sync Manager v2.1.0
 #
 # Safe, modular bidirectional sync with optional PDF compression.
 # Originals are ALWAYS preserved if compression fails.
@@ -164,6 +164,13 @@ do_sync() {
                     sync_result=$?
                 fi
                 ;;
+            update)
+                if update_from_drive "$log_file" "$local_path" "$remote_name" "$dry_run"; then
+                    sync_result=0
+                else
+                    sync_result=$?
+                fi
+                ;;
             sync)
                 if sync_from_drive "$log_file" "$local_path" "$remote_name" "$dry_run"; then
                     local pull_result=0
@@ -261,8 +268,8 @@ main() {
     done
 
     case "$command" in
-        push|pull|sync)
-            log_info "$log_file" "${command^}ing $( [[ "$command" != "pull" ]] && echo "to" || echo "from" ) Drive"
+        push|pull|sync|update)
+            log_info "$log_file" "${command^}ing $( [[ "$command" == "push" || "$command" == "sync" ]] && echo "to" || echo "from" ) Drive"
             do_sync "$log_file" "$local_path" "$remote_name" "$state_file" \
                     "$lock_file" "$optimized_marker" "$gs_device" \
                     "$min_valid_size" "$backoff_seconds" "$retry_delay" \

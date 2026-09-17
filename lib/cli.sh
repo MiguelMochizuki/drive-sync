@@ -25,7 +25,7 @@ USAGE:
   drive-sync.sh [COMMAND] [OPTIONS]
 
 COMMANDS:
-  push, pull, sync, status, ratelimit
+  push, pull, sync, update, status, ratelimit
 
 Run 'drive-sync.sh --help' for details.
 EOF
@@ -47,6 +47,7 @@ COMMANDS:
   push      Upload local changes (compresses PDFs)
   pull      Download remote changes
   sync      Full sync (pull then push)
+  update    Mirror from Drive, deleting local files not on Drive
   status    Show sync status
   ratelimit Recover from rate limiting
 
