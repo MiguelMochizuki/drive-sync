@@ -133,3 +133,44 @@ sync_from_drive() {
         fi
     fi
 }
+
+# Mirror remote_name onto local_path with rclone sync: adds, updates,
+# AND deletes local files absent from the remote. Unlike sync_from_drive
+# (which never deletes locally), this makes local match Drive exactly.
+#
+# Parameters:
+#   log_file: path to the active log file
+#   local_path: directory to mirror into
+#   remote_name: the configured rclone remote
+#   dry_run: "true" to preview without transferring, default "false"
+#
+# Returns: 0 on success; 2 on a temporary/rate-limit error; 3 on a
+#   fatal error; 1 on any other nonzero exit. Does not touch state.
+update_from_drive() {
+    local log_file="$1"
+    local local_path="$2"
+    local remote_name="$3"
+    local dry_run="${4:-false}"
+
+    local flags
+    flags=$(build_rclone_flags "$dry_run")
+
+    log_info "$log_file" "Mirroring from Google Drive (will delete local files not on Drive)..."
+
+    if rclone sync "$remote_name" "$local_path" $flags; then
+        log_success "$log_file" "Mirror completed successfully"
+        return 0
+    else
+        local exit_code=$?
+        if is_fatal_error "$exit_code"; then
+            log_error "$log_file" "Mirror failed with fatal error $exit_code (permanent)"
+            return 3
+        elif is_rate_limit_error "$exit_code"; then
+            log_warning "$log_file" "Temporary error detected (code $exit_code)"
+            return 2
+        else
+            log_error "$log_file" "Mirror failed with code $exit_code"
+            return 1
+        fi
+    fi
+}
