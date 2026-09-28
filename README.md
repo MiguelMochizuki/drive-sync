@@ -15,7 +15,7 @@ optional compression before upload.
 ## Install
 
 ```bash
-git clone https://github.com/yourusername/drive-sync.git
+git clone https://github.com/MiguelMochizuki/drive-sync.git
 cd drive-sync
 sudo make install       # installs to /usr/local
 # or
