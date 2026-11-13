@@ -28,6 +28,7 @@ source "${LIB_DIR}/storage.sh"
 source "${LIB_DIR}/limit.sh"
 source "${LIB_DIR}/compression.sh"
 source "${LIB_DIR}/sync_ops.sh"
+source "${LIB_DIR}/safety.sh"
 source "${LIB_DIR}/cli.sh"
 
 #=============================================================================
@@ -161,8 +162,9 @@ handle_sync_result() {
 #   dry_run: "true" to preview without transferring, default "false"
 #   allowed_paths: remaining arguments, the paths operations may touch
 #
-# Returns: 0 on success; 1 when compression failed; EX_TEMPFAIL when
-#   retries are exhausted; EX_UNAVAILABLE on a fatal error.
+# Returns: 0 on success; 1 when compression failed or the deletion guard
+#   aborted (see lib/safety.sh); EX_TEMPFAIL when retries are exhausted;
+#   EX_UNAVAILABLE on a fatal error. Reads the FORCE environment variable.
 do_sync() {
     local log_file="$1"
     local local_path="$2"
@@ -181,6 +183,7 @@ do_sync() {
     local -a allowed_paths=("$@")
 
     local attempt=1
+    local guarded="false"
 
     while [[ $attempt -le $max_retries ]]; do
         log_info "$log_file" "Sync attempt $attempt of $max_retries"
@@ -199,6 +202,10 @@ do_sync() {
         local sync_result=0
         case "$direction" in
             push)
+                if [[ "$guarded" != "true" ]]; then
+                    guard_deletions "$log_file" "$local_path" "$remote_name" "$dry_run" || return 1
+                    guarded="true"
+                fi
                 if sync_to_drive "$log_file" "$local_path" "$remote_name" \
                                  "$state_file" "$lock_file" "$dry_run"; then
                     sync_result=0
@@ -214,6 +221,10 @@ do_sync() {
                 fi
                 ;;
             update)
+                if [[ "$guarded" != "true" ]]; then
+                    guard_deletions "$log_file" "$remote_name" "$local_path" "$dry_run" || return 1
+                    guarded="true"
+                fi
                 if update_from_drive "$log_file" "$local_path" "$remote_name" "$dry_run"; then
                     sync_result=0
                 else
@@ -227,6 +238,10 @@ do_sync() {
                     local pull_result=$?
                 fi
                 if [[ $pull_result -eq 0 ]]; then
+                    if [[ "$guarded" != "true" ]]; then
+                        guard_deletions "$log_file" "$local_path" "$remote_name" "$dry_run" || return 1
+                        guarded="true"
+                    fi
                     if sync_to_drive "$log_file" "$local_path" "$remote_name" \
                                      "$state_file" "$lock_file" "$dry_run"; then
                         sync_result=0
@@ -318,7 +333,7 @@ main() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
             -n|--dry-run)  dry_run="true"; shift ;;
-            -f|--force)    force="true"; shift ;;
+            -f|--force)    force="true"; export FORCE="true"; shift ;;
             -v|--verbose)  export VERBOSE="true"; shift ;;
             -V|--version)  echo "drive_sync version ${VERSION}"; exit 0 ;;
             -h|--help)     show_help; exit 0 ;;

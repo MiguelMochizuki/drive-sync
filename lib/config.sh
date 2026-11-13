@@ -74,6 +74,25 @@ MAX_RETRIES=3
 RETRY_DELAY=60
 
 #=============================================================================
+# Safety
+#
+# MAX_DELETE_PERCENT: a push or update that would delete more than this
+#   percentage of the destination's files aborts, even with -f. Set it to
+#   100 to disable the limit.
+# ARCHIVE_DIR: where `update` moves local files it would delete, in a
+#   timestamped subdirectory (rclone --backup-dir).
+# REMOTE_BACKUP_DIR: optional rclone --backup-dir for `push`. It must sit
+#   OUTSIDE the destination (rclone refuses overlapping paths), so it only
+#   works when REMOTE_NAME points at a subfolder, for example
+#   REMOTE_NAME="drive:Sync" and REMOTE_BACKUP_DIR="drive:Sync-archive".
+#   Empty by default: push relies on Google Drive's trash (--drive-use-trash).
+#=============================================================================
+
+MAX_DELETE_PERCENT="${MAX_DELETE_PERCENT:-50}"
+ARCHIVE_DIR="${ARCHIVE_DIR:-${DRIVE_SYNC_HOME}/archive}"
+REMOTE_BACKUP_DIR="${REMOTE_BACKUP_DIR:-}"
+
+#=============================================================================
 # Exit Codes (see docs/CONTRACT.md)
 #=============================================================================
 
@@ -110,6 +129,7 @@ readonly RCLONE_DRIVE_CHUNK_SIZE
 readonly OPTIMIZED_MARKER GHOSTSCRIPT_DEVICE MIN_VALID_COMPRESSED_SIZE
 readonly RATE_LIMIT_BACKOFF_SECONDS MAX_RETRIES RETRY_DELAY
 readonly ALLOWED_PATHS
+readonly MAX_DELETE_PERCENT ARCHIVE_DIR REMOTE_BACKUP_DIR
 
 #=============================================================================
 # Getters

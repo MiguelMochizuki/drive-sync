@@ -67,9 +67,14 @@ sync_to_drive() {
     local flags
     flags=$(build_rclone_flags "$dry_run")
 
+    # Deleted remote files go to Drive's trash (or REMOTE_BACKUP_DIR).
+    local -a safety=(--drive-use-trash)
+    [[ -n "${REMOTE_BACKUP_DIR:-}" ]] && \
+        safety+=(--backup-dir "${REMOTE_BACKUP_DIR}/$(date +%Y%m%dT%H%M%S)")
+
     log_info "$log_file" "Uploading to Google Drive..."
 
-    if rclone sync "$local_path" "$remote_name" $flags; then
+    if rclone sync "$local_path" "$remote_name" $flags "${safety[@]}"; then
         log_success "$log_file" "Upload completed successfully"
         update_state "$log_file" "$state_file" "$lock_file" "last_sync" "$(date -Iseconds)"
         update_state "$log_file" "$state_file" "$lock_file" "sync_status" "success"
@@ -155,9 +160,12 @@ update_from_drive() {
     local flags
     flags=$(build_rclone_flags "$dry_run")
 
-    log_info "$log_file" "Mirroring from Google Drive (will delete local files not on Drive)..."
+    # Local files the mirror would delete are moved here instead.
+    local archive="${ARCHIVE_DIR}/$(date +%Y%m%dT%H%M%S)"
 
-    if rclone sync "$remote_name" "$local_path" $flags; then
+    log_info "$log_file" "Mirroring from Google Drive (local files not on Drive are archived in $archive)..."
+
+    if rclone sync "$remote_name" "$local_path" $flags --backup-dir "$archive"; then
         log_success "$log_file" "Mirror completed successfully"
         return 0
     else
