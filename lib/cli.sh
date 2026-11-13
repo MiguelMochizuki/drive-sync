@@ -25,7 +25,7 @@ USAGE:
   drive-sync.sh [COMMAND] [OPTIONS]
 
 COMMANDS:
-  push, pull, sync, update, plan, status, doctor, ratelimit
+  push, pull, sync, update, plan, restore, status, doctor, ratelimit
 
 Run 'drive-sync.sh --help' for details.
 EOF
@@ -49,6 +49,7 @@ COMMANDS:
   sync      Full sync (pull then push)
   update    Mirror from Drive, deleting local files not on Drive
   plan      Show what a run would compress, transfer and delete (changes nothing)
+  restore   Put a compressed PDF's original back (restore --list shows what is kept)
   status    Show sync status
   doctor    Check dependencies, remote, state and safety settings
   ratelimit Recover from rate limiting
@@ -67,7 +68,38 @@ EXAMPLES:
   drive-sync.sh push
   drive-sync.sh sync -n
   drive-sync.sh plan push --json
+  drive-sync.sh restore books/analysis.pdf
 EOF
+}
+
+# Run the restore command: list the quarantined originals, or put one back.
+#
+# Parameters:
+#   log_file: path to the active log file
+#   state_file: path to state.json
+#   lock_file: path to the lock file
+#   local_path: the synced directory
+#   list: "true" to list instead of restoring
+#   path: the file to restore, relative to local_path or absolute under it
+#
+# Returns: 0 on success; 1 when nothing is quarantined for the path or it is
+#   not inside the synced directory. The result goes to stdout.
+run_restore() {
+    local log_file="$1"
+    local state_file="$2"
+    local lock_file="$3"
+    local local_path="$4"
+    local list="$5"
+    local path="$6"
+
+    if [[ "$list" == "true" ]]; then
+        quarantine_list
+        return 0
+    fi
+
+    quarantine_restore "$log_file" "$state_file" "$lock_file" "$local_path" "$path" || return 1
+    echo "Restored $path"
+    echo "Run 'drive-sync.sh push' to send the original to Drive."
 }
 
 #=============================================================================
@@ -146,9 +178,22 @@ run_doctor() {
         fi
     fi
 
+    if declare -F quarantine_enabled > /dev/null && quarantine_enabled; then
+        local q_probe="$QUARANTINE_DIR"
+        [[ -d "$q_probe" ]] || q_probe="$(dirname "$QUARANTINE_DIR")"
+        if [[ ! -w "$q_probe" ]]; then
+            echo "  $(style 33 "[warn]") quarantine directory $QUARANTINE_DIR is not writable (compression will leave originals untouched)"
+        fi
+    fi
+
     echo ""
     style 36 "Settings:"; echo ""
     echo "  tracking: ${TRACKING_MODE}"
+    if [[ "$(quarantine_days)" -gt 0 ]]; then
+        echo "  quarantine: $(quarantine_days) days in ${QUARANTINE_DIR}"
+    else
+        echo "  quarantine: off"
+    fi
     echo "  delete limit: ${MAX_DELETE_PERCENT}%"
     echo "  archive: ${ARCHIVE_DIR}"
 
@@ -300,6 +345,13 @@ show_status() {
             fi
             if [[ $marked_pdfs -gt 0 ]]; then
                 echo "  Not counted: $marked_pdfs legacy ${optimized_marker} file$([[ $marked_pdfs -eq 1 ]] || echo s) (savings not recorded)"
+            fi
+            if declare -F quarantine_enabled > /dev/null && quarantine_enabled; then
+                local q_count q_bytes
+                IFS=$'\t' read -r q_count q_bytes < <(quarantine_summary)
+                if [[ "$q_count" -gt 0 ]]; then
+                    echo "  Quarantine: $q_count original$([[ "$q_count" -eq 1 ]] || echo s), $(format_size "$q_bytes") (kept $(quarantine_days) days)"
+                fi
             fi
         fi
     fi

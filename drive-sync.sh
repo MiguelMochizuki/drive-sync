@@ -26,6 +26,7 @@ source "${LIB_DIR}/logging.sh"
 source "${LIB_DIR}/state.sh"
 source "${LIB_DIR}/storage.sh"
 source "${LIB_DIR}/limit.sh"
+source "${LIB_DIR}/quarantine.sh"
 source "${LIB_DIR}/compression.sh"
 source "${LIB_DIR}/sync_ops.sh"
 source "${LIB_DIR}/safety.sh"
@@ -186,6 +187,8 @@ do_sync() {
     local attempt=1
     local guarded="false"
 
+    [[ "$dry_run" == "true" ]] || quarantine_prune "$log_file"
+
     while [[ $attempt -le $max_retries ]]; do
         log_info "$log_file" "Sync attempt $attempt of $max_retries"
 
@@ -282,7 +285,7 @@ do_sync() {
 #=============================================================================
 
 # Entry point: load settings, parse arguments, validate the environment
-# and dispatch to push/pull/sync/update/plan/status/doctor/ratelimit. Exit codes
+# and dispatch to push/pull/sync/update/plan/restore/status/doctor/ratelimit. Exit codes
 # follow docs/CONTRACT.md: bare invocation is a usage error (EX_USAGE),
 # while -h/--help and -V/--version exit 0.
 #
@@ -337,9 +340,17 @@ main() {
     shift
 
     local plan_dir="" plan_json="false" plan_measure="false"
+    local restore_list="false"
+    local -a restore_paths=()
 
     while [[ $# -gt 0 ]]; do
+        if [[ "$command" == "restore" && "$1" != -* ]]; then
+            restore_paths+=("$1"); shift; continue
+        fi
         case "$1" in
+            --list)
+                [[ "$command" == "restore" ]] || { show_usage >&2; exit "$EX_USAGE"; }
+                restore_list="true"; shift ;;
             push|pull|sync|update)
                 [[ "$command" == "plan" && -z "$plan_dir" ]] || { show_usage >&2; exit "$EX_USAGE"; }
                 plan_dir="$1"; shift ;;
@@ -355,6 +366,14 @@ main() {
             *) show_usage >&2; exit "$EX_USAGE" ;;
         esac
     done
+
+    if [[ "$command" == "restore" ]]; then
+        if [[ "$restore_list" == "true" && ${#restore_paths[@]} -gt 0 ]] \
+               || [[ "$restore_list" == "false" && ${#restore_paths[@]} -ne 1 ]]; then
+            show_usage >&2
+            exit "$EX_USAGE"
+        fi
+    fi
 
     case "$command" in
         push|pull|sync|update)
@@ -373,6 +392,10 @@ main() {
                       "$remote_name" "$optimized_marker" "$gs_device" \
                       "$min_valid_size" "${plan_dir:-sync}" "$plan_json" \
                       "$plan_measure"
+            ;;
+        restore)
+            run_restore "$log_file" "$state_file" "$lock_file" "$local_path" \
+                        "$restore_list" "${restore_paths[0]:-}"
             ;;
         status)
             show_status "$log_file" "$state_file" "$remote_name" \

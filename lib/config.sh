@@ -98,6 +98,15 @@ REMOTE_BACKUP_DIR="${REMOTE_BACKUP_DIR:-}"
 # Existing *.optimized.pdf files are recognized in both modes.
 TRACKING_MODE="${TRACKING_MODE:-hash}"
 
+# QUARANTINE_DIR: where compression keeps the original of every PDF it
+#   replaces (hash mode), as QUARANTINE_DIR/<path>/<UTC timestamp>.
+#   `drive-sync restore` puts one back.
+# QUARANTINE_RETENTION_DAYS: how long originals, and the update archive in
+#   ARCHIVE_DIR, are kept before a push, sync or update removes them. 0
+#   turns the quarantine off: originals are replaced as before.
+QUARANTINE_DIR="${QUARANTINE_DIR:-${DRIVE_SYNC_HOME}/originals}"
+QUARANTINE_RETENTION_DAYS="${QUARANTINE_RETENTION_DAYS:-30}"
+
 #=============================================================================
 # Exit Codes (see docs/CONTRACT.md)
 #=============================================================================
@@ -136,6 +145,7 @@ readonly OPTIMIZED_MARKER GHOSTSCRIPT_DEVICE MIN_VALID_COMPRESSED_SIZE
 readonly RATE_LIMIT_BACKOFF_SECONDS MAX_RETRIES RETRY_DELAY
 readonly ALLOWED_PATHS
 readonly MAX_DELETE_PERCENT ARCHIVE_DIR REMOTE_BACKUP_DIR TRACKING_MODE
+readonly QUARANTINE_DIR QUARANTINE_RETENTION_DAYS
 
 #=============================================================================
 # Getters
