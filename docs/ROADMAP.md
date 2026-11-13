@@ -30,12 +30,11 @@ Exit codes and the console I/O contract stay. `state.json` and `drive-sync.conf`
 
 ## Status
 
-v2.2 is implemented on branch `feat/v2.2-safe-base`: real confirmation, the deletion limit, backups, hash-based state with migration, and `doctor`. It differs from the plan in a few places.
+v2.2 is released as 2.2.0 (PR #9): real confirmation, the deletion limit, backups, hash-based state with migration, and `doctor`. It differs from the plan in a few places.
 
 - A Drive-side `--backup-dir` is impossible when the remote is the Drive root, because rclone refuses a backup directory inside the destination. `push` pins `--drive-use-trash` instead, and `REMOTE_BACKUP_DIR` is optional for remotes that point at a subfolder. `update` archives locally.
 - The deletion limit applies even with `-f`. Only the confirmation can be skipped. A dry run that fails aborts the sync.
 - Nothing prunes `~/.drive-sync/archive/` yet. Retention arrives with the v3.0 quarantine.
-- The version is still 2.1.0. The bump belongs to the release.
 
 Before v2.2, `-f` was parsed in `main()` but never read, so no confirmation existed, and `push` and `update` deleted files without asking and without a `--backup-dir`.
 
