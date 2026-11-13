@@ -196,3 +196,28 @@ teardown() {
     [ "$status" -eq 0 ]
     [[ "$output" == *"Would compress: "*"big.pdf"* ]]
 }
+
+@test "push -n leaves last_sync and sync_status as they were" {
+    export MOCK_RCLONE_EXIT_SEQUENCE="0"
+    run "$REPO_ROOT/drive-sync.sh" push -n
+    [ "$status" -eq 0 ]
+    [ "$(jq -r '.last_sync' "$HOME/.drive-sync/state.json")" = "null" ]
+    [ "$(jq -r '.sync_status' "$HOME/.drive-sync/state.json")" = "idle" ]
+}
+
+@test "a DRY_RUN=true inherited from the environment does not turn a real push into a half dry run" {
+    export MOCK_RCLONE_EXIT_SEQUENCE="0" MOCK_GS_BEHAVIOR="smaller"
+    mkdir -p "$HOME/drive" && make_pdf_fixture "$HOME/drive/big.pdf" 50000
+    DRY_RUN=true run "$REPO_ROOT/drive-sync.sh" push
+    [ "$status" -eq 0 ]
+    [ "$(stat -c%s "$HOME/drive/big.pdf")" -eq 25000 ]
+    ! grep -q -- "--dry-run" "$MOCK_STATE_DIR/rclone_calls.log"
+}
+
+@test "push -n that hits a rate limit runs no cleanup and writes no recovery state" {
+    export MOCK_RCLONE_EXIT_SEQUENCE="5,0"
+    run "$REPO_ROOT/drive-sync.sh" push -n
+    [ "$status" -eq 0 ]
+    ! grep -q '^cleanup\|^cache' "$MOCK_STATE_DIR/rclone_calls.log"
+    [ "$(jq -r '.rate_limit_recoveries' "$HOME/.drive-sync/state.json")" = "0" ]
+}

@@ -43,7 +43,7 @@ build_rclone_flags() {
 #=============================================================================
 
 # Upload local_path to remote_name with rclone sync, updating state on
-# success or failure.
+# success or failure. A dry run never writes state.
 #
 # Parameters:
 #   log_file: path to the active log file
@@ -76,21 +76,23 @@ sync_to_drive() {
 
     if rclone sync "$local_path" "$remote_name" $flags "${safety[@]}"; then
         log_success "$log_file" "Upload completed successfully"
-        update_state "$log_file" "$state_file" "$lock_file" "last_sync" "$(date -Iseconds)"
-        update_state "$log_file" "$state_file" "$lock_file" "sync_status" "success"
+        if [[ "$dry_run" != "true" ]]; then
+            update_state "$log_file" "$state_file" "$lock_file" "last_sync" "$(date -Iseconds)"
+            update_state "$log_file" "$state_file" "$lock_file" "sync_status" "success"
+        fi
         return 0
     else
         local exit_code=$?
         if is_fatal_error "$exit_code"; then
             log_error "$log_file" "Upload failed with fatal error $exit_code (permanent)"
-            update_state "$log_file" "$state_file" "$lock_file" "sync_status" "failed"
+            [[ "$dry_run" != "true" ]] && update_state "$log_file" "$state_file" "$lock_file" "sync_status" "failed"
             return 3
         elif is_rate_limit_error "$exit_code"; then
             log_warning "$log_file" "Temporary error detected (code $exit_code)"
             return 2
         else
             log_error "$log_file" "Upload failed with code $exit_code"
-            update_state "$log_file" "$state_file" "$lock_file" "sync_status" "failed"
+            [[ "$dry_run" != "true" ]] && update_state "$log_file" "$state_file" "$lock_file" "sync_status" "failed"
             return 1
         fi
     fi

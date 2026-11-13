@@ -84,3 +84,24 @@ teardown() {
     sync_from_drive "$LOG_FILE" "$TEST_TMP_DIR/local" "drive:" "false"
     ! grep -q -- "--backup-dir" "$MOCK_STATE_DIR/rclone_calls.log"
 }
+
+@test "sync_to_drive in dry run does not record last_sync or a success status" {
+    export MOCK_RCLONE_EXIT_SEQUENCE="0"
+    sync_to_drive "$LOG_FILE" "$TEST_TMP_DIR/local" "drive:" "$STATE_FILE" "$LOCK_FILE" "true"
+    [ "$(get_state_value "$STATE_FILE" "last_sync")" = "null" ]
+    [ "$(get_state_value "$STATE_FILE" "sync_status")" = "idle" ]
+}
+
+@test "sync_to_drive in dry run does not mark the state failed when rclone fails" {
+    export MOCK_RCLONE_EXIT_SEQUENCE="1"
+    run sync_to_drive "$LOG_FILE" "$TEST_TMP_DIR/local" "drive:" "$STATE_FILE" "$LOCK_FILE" "true"
+    [ "$status" -eq 1 ]
+    [ "$(get_state_value "$STATE_FILE" "sync_status")" = "idle" ]
+}
+
+@test "sync_to_drive in dry run does not mark the state failed on a fatal error" {
+    export MOCK_RCLONE_EXIT_SEQUENCE="7"
+    run sync_to_drive "$LOG_FILE" "$TEST_TMP_DIR/local" "drive:" "$STATE_FILE" "$LOCK_FILE" "true"
+    [ "$status" -eq 3 ]
+    [ "$(get_state_value "$STATE_FILE" "sync_status")" = "idle" ]
+}

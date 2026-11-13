@@ -296,6 +296,10 @@ main() {
     local -a allowed_paths
     local command dry_run="false" force="false"
 
+    # Only -n/--dry-run may turn a dry run on. An inherited DRY_RUN=true would
+    # skip compression while rclone still ran for real.
+    export DRY_RUN="false"
+
     log_file=$(get_log_file)
     state_file=$(get_state_file)
     lock_file=$(get_lock_file)
