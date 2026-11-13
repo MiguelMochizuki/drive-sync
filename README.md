@@ -157,7 +157,7 @@ bold and the sync status is colored; set `NO_COLOR` to turn that off.
 Redirected output never contains escape codes.
 
 ```
-drive_sync v2.1.0
+drive_sync v2.2.0
 
 Paths
   Local: /home/you/drive
