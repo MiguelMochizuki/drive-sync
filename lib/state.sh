@@ -49,6 +49,33 @@ acquire_lock() {
     return 0
 }
 
+# Take the run lock for this process, without waiting. Unlike the state
+# lock (held only while state.json is written), it is held until the
+# process exits, so only one push, pull, sync, update or restore runs at a
+# time. A second run would otherwise overlap on the same files and state.
+#
+# Parameters:
+#   log_file: path to the active log file
+#   run_lock_file: path to the run lock file
+#
+# Returns: 0 once the lock is held; 1 and a logged error when another run
+#   holds it or the file cannot be created.
+acquire_run_lock() {
+    local log_file="$1"
+    local run_lock_file="$2"
+
+    if ! { exec 201>"$run_lock_file"; } 2>/dev/null; then
+        log_error "$log_file" "Cannot create run lock file: $run_lock_file"
+        return 1
+    fi
+    if ! flock -n 201; then
+        log_error "$log_file" "Another drive-sync run is in progress (lock: $run_lock_file)"
+        echo "drive-sync: another drive-sync run is in progress, try again when it finishes" >&2
+        return 1
+    fi
+    return 0
+}
+
 # Release the state lock acquired by acquire_lock.
 #
 # Parameters: none.
