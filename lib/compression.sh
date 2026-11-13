@@ -77,7 +77,7 @@ compress_pdf() {
         log_info "$log_file" "File already optimal: $(basename "$validated_path") ($size_human)"
 
         if [[ "$mode" == "hash" ]]; then
-            log_success "$log_file" "  ✓ Already small, left as is"
+            log_success "$log_file" "  Already small, left as is"
             return 0
         fi
 
@@ -155,7 +155,7 @@ compress_pdf() {
             new_human=$(format_size "$new_size")
             log_info "$log_file" "  → No size reduction achieved ($new_human vs $orig_human)"
             if [[ "$mode" == "hash" ]]; then
-                log_success "$log_file" "  ✓ Left as is (already at optimal size)"
+                log_success "$log_file" "  Left as is (already at optimal size)"
                 return 0
             fi
             if mv "$validated_path" "$optimized_file" 2>/dev/null; then

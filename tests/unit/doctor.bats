@@ -34,50 +34,50 @@ path_without() {
 @test "doctor exits 0 and reports every check when the environment is healthy" {
     run "$REPO_ROOT/drive-sync.sh" doctor
     [ "$status" -eq 0 ]
-    [[ "$output" == *"✓ rclone"* ]]
-    [[ "$output" == *"✓ gs"* ]]
-    [[ "$output" == *"✓ jq"* ]]
-    [[ "$output" == *"✓ flock"* ]]
-    [[ "$output" == *"✓ remote drive:"* ]]
-    [[ "$output" == *"✓ local directory"* ]]
-    [[ "$output" == *"✓ state"* ]]
+    [[ "$output" == *"[ok] rclone"* ]]
+    [[ "$output" == *"[ok] gs"* ]]
+    [[ "$output" == *"[ok] jq"* ]]
+    [[ "$output" == *"[ok] flock"* ]]
+    [[ "$output" == *"[ok] remote drive:"* ]]
+    [[ "$output" == *"[ok] local directory"* ]]
+    [[ "$output" == *"[ok] state"* ]]
 }
 
 @test "doctor exits 69 and names the tool when a required tool is missing" {
     local bin; bin=$(path_without gs)
     PATH="$bin" run "$bin/bash" "$REPO_ROOT/drive-sync.sh" doctor
     [ "$status" -eq 69 ]
-    [[ "$output" == *"✗ gs"* ]]
-    [[ "$output" == *"✓ jq"* ]]
+    [[ "$output" == *"[FAIL] gs"* ]]
+    [[ "$output" == *"[ok] jq"* ]]
 }
 
 @test "doctor only warns when the optional bc is missing" {
     local bin; bin=$(path_without bc)
     PATH="$bin" run "$bin/bash" "$REPO_ROOT/drive-sync.sh" doctor
     [ "$status" -eq 0 ]
-    [[ "$output" == *"⚠ bc"* ]]
+    [[ "$output" == *"[warn] bc"* ]]
 }
 
 @test "doctor keeps going past a missing remote and exits 69" {
     export MOCK_RCLONE_REMOTES="other:"
     run "$REPO_ROOT/drive-sync.sh" doctor
     [ "$status" -eq 69 ]
-    [[ "$output" == *"✗ remote drive:"* ]]
-    [[ "$output" == *"✓ local directory"* ]]
+    [[ "$output" == *"[FAIL] remote drive:"* ]]
+    [[ "$output" == *"[ok] local directory"* ]]
 }
 
 @test "doctor reports an unreachable remote" {
     export MOCK_RCLONE_ABOUT_EXIT=1
     run "$REPO_ROOT/drive-sync.sh" doctor
     [ "$status" -eq 69 ]
-    [[ "$output" == *"✗ remote drive: is not reachable"* ]]
+    [[ "$output" == *"[FAIL] remote drive: is not reachable"* ]]
 }
 
 @test "doctor reports a missing local directory" {
     rmdir "$HOME/drive"
     run "$REPO_ROOT/drive-sync.sh" doctor
     [ "$status" -eq 69 ]
-    [[ "$output" == *"✗ local directory"* ]]
+    [[ "$output" == *"[FAIL] local directory"* ]]
 }
 
 @test "doctor reports a corrupt state file" {
@@ -85,7 +85,7 @@ path_without() {
     echo "not json" > "$HOME/.drive-sync/state.json"
     run "$REPO_ROOT/drive-sync.sh" doctor
     [ "$status" -eq 69 ]
-    [[ "$output" == *"✗ state"* ]]
+    [[ "$output" == *"[FAIL] state"* ]]
 }
 
 @test "doctor shows the active safety settings" {

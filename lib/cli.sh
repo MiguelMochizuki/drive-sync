@@ -90,52 +90,52 @@ run_doctor() {
     local failed=0 tool
 
     echo ""
-    echo "🩺 drive_sync doctor"
-    echo "─────────────────────────"
+    echo "drive_sync doctor"
+    echo ""
 
     for tool in rclone gs jq flock; do
         if command -v "$tool" &> /dev/null; then
-            echo "  ✓ $tool"
+            echo "  [ok] $tool"
         else
-            echo "  ✗ $tool is missing (install it, for example: sudo apt-get install $tool)"
+            echo "  [FAIL] $tool is missing (install it, for example: sudo apt-get install $tool)"
             failed=1
         fi
     done
 
     if command -v bc &> /dev/null; then
-        echo "  ✓ bc"
+        echo "  [ok] bc"
     else
-        echo "  ⚠ bc is missing (optional: integer arithmetic is used instead)"
+        echo "  [warn] bc is missing (optional: integer arithmetic is used instead)"
     fi
 
     if command -v rclone &> /dev/null; then
         if ! rclone listremotes 2>/dev/null | grep -q "^${remote_name}$"; then
-            echo "  ✗ remote ${remote_name} is not configured (run 'rclone config')"
+            echo "  [FAIL] remote ${remote_name} is not configured (run 'rclone config')"
             failed=1
         elif ! rclone about "$remote_name" &> /dev/null; then
-            echo "  ✗ remote ${remote_name} is not reachable (check the network, or run 'rclone config reconnect ${remote_name}')"
+            echo "  [FAIL] remote ${remote_name} is not reachable (check the network, or run 'rclone config reconnect ${remote_name}')"
             failed=1
         else
-            echo "  ✓ remote ${remote_name} is configured and reachable"
+            echo "  [ok] remote ${remote_name} is configured and reachable"
         fi
     fi
 
     if [[ -d "$local_path" ]]; then
-        echo "  ✓ local directory $local_path"
+        echo "  [ok] local directory $local_path"
     else
-        echo "  ✗ local directory $local_path does not exist"
+        echo "  [FAIL] local directory $local_path does not exist"
         failed=1
     fi
 
     if [[ ! -w "$(dirname "$state_file")" ]]; then
-        echo "  ✗ service directory $(dirname "$state_file") is not writable"
+        echo "  [FAIL] service directory $(dirname "$state_file") is not writable"
         failed=1
     elif command -v jq &> /dev/null; then
         local version
         if version=$(jq -er '.schema_version' "$state_file" 2>/dev/null); then
-            echo "  ✓ state (schema $version)"
+            echo "  [ok] state (schema $version)"
         else
-            echo "  ✗ state file is not valid JSON or has no schema_version: $state_file"
+            echo "  [FAIL] state file is not valid JSON or has no schema_version: $state_file"
             failed=1
         fi
     fi
