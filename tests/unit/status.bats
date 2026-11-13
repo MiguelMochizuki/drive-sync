@@ -116,7 +116,7 @@ status_output() {
     use_color() { return 0; }
     export MOCK_RCLONE_REMOTES="drive:"
     run run_doctor "$LOG_FILE" "$STATE_FILE" "drive:" "$LOCAL_PATH"
-    [[ "$output" == *$'\033[36mdrive_sync doctor\033[0m'* ]]
+    [[ "$output" == *$'\033[36mdrive-sync doctor\033[0m'* ]]
     [[ "$output" == *$'\033[36mSettings:\033[0m'* ]]
     [[ "$output" == *$'\033[32m[ok]\033[0m rclone'* ]]
 }

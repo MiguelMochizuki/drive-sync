@@ -1,5 +1,20 @@
 # Changelog
 
+## 3.1.0
+
+drive-sync now looks like the other command line tools in the family.
+
+Added
+
+- `-q`/`--quiet` hides warnings on the console. Errors are still shown and the log file keeps everything.
+- `--help` ends with an `Exit codes` section.
+
+Changed
+
+- `--version` prints `drive-sync 3.1.0` instead of `drive_sync version 3.0.0`.
+- The `init`, `doctor`, `plan` and `status` titles say `drive-sync`, not `drive_sync`.
+- `--help` headings are `Usage:`, `Commands:`, `Options:` and `Examples:` instead of upper case.
+
 ## 3.0.0
 
 drive-sync now previews what it will do, keeps what it replaces, and remembers the last sync.

@@ -210,7 +210,7 @@ style. On a terminal titles are cyan, `[ok]` is green, `[FAIL]` is red and
 Redirected output never contains escape codes.
 
 ```
-drive_sync v3.0.0
+drive-sync 3.1.0
 
 Paths
   Local: /home/you/drive
@@ -249,7 +249,7 @@ are. Both lines appear only in `hash` mode.
 other commands (`push`, `pull`, `sync` or `update`) and defaults to `sync`.
 
 ```
-drive_sync plan (sync)
+drive-sync plan (sync)
 
 Compress
   3 PDFs, 11.34 MiB to process
@@ -308,6 +308,7 @@ The same retention prunes the timestamped folders `update` leaves under
 | `-n`, `--dry-run` | Preview changes without modifying anything: no transfer, no compression, no state change. With `-v`, lists the PDFs it would compress |
 | `-f`, `--force` | Skip the deletion confirmation (the deletion limit still applies) |
 | `-v`, `--verbose` | Show detailed progress (INFO/SUCCESS lines) |
+| `-q`, `--quiet` | Hide warnings on the console; errors are still shown and the log file keeps everything |
 | `--json` | With `plan`: print the report as JSON |
 | `--measure` | With `plan`: measure PDF savings with `gs` instead of estimating |
 | `-h`, `--help` | Show help text |

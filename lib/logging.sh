@@ -3,7 +3,7 @@
 # logging.sh: structured logging with automatic rotation and severity
 # based console routing.
 #
-# ERROR and WARNING always reach stderr. INFO and SUCCESS reach the
+# ERROR always reaches stderr, and so does WARNING unless QUIET is "true". INFO and SUCCESS reach the
 # console only when VERBOSE is "true". Every level always reaches the
 # log file regardless of VERBOSE. See docs/CONTRACT.md.
 
@@ -13,6 +13,7 @@
 }
 
 VERBOSE="${VERBOSE:-false}"
+QUIET="${QUIET:-false}"
 
 # Roll the log file over to .1 through .5 once it exceeds 10 MB.
 #
@@ -64,8 +65,11 @@ _log_write() {
     echo "$line" >> "$log_file"
 
     case "$level" in
-        ERROR|WARNING)
+        ERROR)
             echo "$line" >&2
+            ;;
+        WARNING)
+            [[ "$QUIET" == "true" ]] || echo "$line" >&2
             ;;
         INFO|SUCCESS)
             if [[ "$VERBOSE" == "true" ]]; then

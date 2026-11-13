@@ -67,3 +67,10 @@ teardown() {
     grep -q "\[INFO\] c" "$LOG_FILE"
     grep -q "\[SUCCESS\] d" "$LOG_FILE"
 }
+
+@test "with QUIET true, log_warning is silent on the console but still logged" {
+    QUIET="true" run --separate-stderr log_warning "$LOG_FILE" "careful"
+    [ -z "$output" ]
+    [ -z "$stderr" ]
+    grep -q "careful" "$LOG_FILE"
+}

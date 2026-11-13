@@ -227,7 +227,7 @@ render_plan_text() {
 
     local direction
     direction=$(jq -r '.direction' <<< "$doc")
-    style 36 "drive_sync plan ($direction)"; echo ""
+    style 36 "drive-sync plan ($direction)"; echo ""
 
     if [[ "$(jq -r '.compress' <<< "$doc")" != "null" ]]; then
         local count total method saved ratio

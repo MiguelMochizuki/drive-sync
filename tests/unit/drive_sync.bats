@@ -43,32 +43,32 @@ teardown() {
     run --separate-stderr "$REPO_ROOT/drive-sync.sh"
     [ "$status" -eq 2 ]
     [[ "$output" == "" ]]
-    [[ "$stderr" == *"USAGE:"* ]]
+    [[ "$stderr" == *"Usage:"* ]]
 }
 
 @test "an unknown command exits 2 with usage on stderr" {
     run --separate-stderr "$REPO_ROOT/drive-sync.sh" bogus
     [ "$status" -eq 2 ]
-    [[ "$stderr" == *"USAGE:"* ]]
+    [[ "$stderr" == *"Usage:"* ]]
 }
 
 @test "an unknown flag exits 2 with usage on stderr" {
     run --separate-stderr "$REPO_ROOT/drive-sync.sh" push --bogus
     [ "$status" -eq 2 ]
-    [[ "$stderr" == *"USAGE:"* ]]
+    [[ "$stderr" == *"Usage:"* ]]
 }
 
 @test "-h still exits 0 with full help on stdout" {
     run --separate-stderr "$REPO_ROOT/drive-sync.sh" -h
     [ "$status" -eq 0 ]
-    [[ "$output" == *"USAGE:"* ]]
-    [[ "$output" == *"EXAMPLES:"* ]]
+    [[ "$output" == *"Usage:"* ]]
+    [[ "$output" == *"Examples:"* ]]
 }
 
 @test "-V prints the version and exits 0" {
     run "$REPO_ROOT/drive-sync.sh" -V
     [ "$status" -eq 0 ]
-    [[ "$output" == *"drive_sync version 3.0.0"* ]]
+    [[ "$output" == *"drive-sync 3.1.0"* ]]
 }
 
 @test "-v is now the short form of --verbose" {

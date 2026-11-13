@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# drive-sync.sh: Google Drive Sync Manager v3.0.0
+# drive-sync.sh: Google Drive Sync Manager v3.1.0
 #
 # Safe, modular bidirectional sync with optional PDF compression.
 # Originals are ALWAYS preserved if compression fails.
@@ -338,12 +338,13 @@ main() {
 
     if [[ "$1" == -* ]]; then
         case "$1" in
-            -V|--version) echo "drive_sync version ${VERSION}"; exit 0 ;;
+            -V|--version) echo "drive-sync ${VERSION}"; exit 0 ;;
             -h|--help)    show_help; exit 0 ;;
             -v|--verbose) export VERBOSE="true" ;;
+            -q|--quiet)   export QUIET="true" ;;
             *) show_usage >&2; exit "$EX_USAGE" ;;
         esac
-        [[ "$1" == "-v" || "$1" == "--verbose" ]] || exit 0
+        [[ "$1" == "-v" || "$1" == "--verbose" || "$1" == "-q" || "$1" == "--quiet" ]] || exit 0
         shift
         [[ $# -eq 0 ]] && { show_usage >&2; exit "$EX_USAGE"; }
     fi
@@ -378,7 +379,8 @@ main() {
             -n|--dry-run)  dry_run="true"; export DRY_RUN="true"; shift ;;
             -f|--force)    force="true"; export FORCE="true"; shift ;;
             -v|--verbose)  export VERBOSE="true"; shift ;;
-            -V|--version)  echo "drive_sync version ${VERSION}"; exit 0 ;;
+            -q|--quiet)    export QUIET="true"; shift ;;
+            -V|--version)  echo "drive-sync ${VERSION}"; exit 0 ;;
             -h|--help)     show_help; exit 0 ;;
             *) show_usage >&2; exit "$EX_USAGE" ;;
         esac
