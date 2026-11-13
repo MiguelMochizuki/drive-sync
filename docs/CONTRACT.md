@@ -10,7 +10,7 @@ reference other documentation (README.md, the man page) points to.
 | 0 | success | |
 | 1 | general or unspecified failure | defensive fallback, should rarely fire; also the deletion guard aborting a push or update (limit exceeded, plan unavailable, or the user declined), see lib/safety.sh; also plan when rclone cannot produce a plan |
 | 2 | usage error | unknown command, unknown flag, or no arguments given |
-| 69 (EX_UNAVAILABLE) | resource unavailable | fatal rclone error (exit 7: auth revoked or account suspended), or environment validation failure (missing dependency, remote not configured), or a required check failing in doctor |
+| 69 (EX_UNAVAILABLE) | resource unavailable | fatal rclone error (exit 7: auth revoked or account suspended), or environment validation failure (missing dependency, remote not configured), or a required check failing in doctor or init |
 | 75 (EX_TEMPFAIL) | temporary failure | retries exhausted after only transient or rate limit errors (rclone exit 5 or 6), or another push, pull, sync, update or restore already holds the run lock (nothing was done) |
 
 Internal return codes passed between functions in the same process (for
@@ -35,7 +35,7 @@ console at all. No line is duplicated across streams.
 | INFO | always | silent | stdout |
 | SUCCESS | always | silent | stdout |
 
-status, doctor, plan, restore, --help, and --version keep writing their intentional
+status, doctor, init, plan, restore, --help, and --version keep writing their intentional
 output to stdout regardless of -v, since that output is the command's actual
 result, not a log line. rclone's --progress bar is only enabled with -v.
 The log file always receives every level, unaffected by -v.

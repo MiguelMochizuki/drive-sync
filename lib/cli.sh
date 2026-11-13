@@ -25,7 +25,7 @@ USAGE:
   drive-sync.sh [COMMAND] [OPTIONS]
 
 COMMANDS:
-  push, pull, sync, update, plan, restore, status, doctor, ratelimit
+  init, push, pull, sync, update, plan, restore, status, doctor, ratelimit
 
 Run 'drive-sync.sh --help' for details.
 EOF
@@ -44,6 +44,7 @@ USAGE:
   drive-sync.sh [COMMAND] [OPTIONS]
 
 COMMANDS:
+  init      First-run setup: config file, local directory, remote check
   push      Upload local changes (compresses PDFs)
   pull      Download remote changes
   sync      Full sync (pull then push)
@@ -64,12 +65,106 @@ OPTIONS:
   -V, --version   Show version
 
 EXAMPLES:
+  drive-sync.sh init
   drive-sync.sh status
   drive-sync.sh push
   drive-sync.sh sync -n
   drive-sync.sh plan push --json
   drive-sync.sh restore books/analysis.pdf
 EOF
+}
+
+# Pick the Google Drive remote to write into a new config. Sets
+# INIT_REMOTE to the name found, or to "drive:" when there is none or
+# several, and INIT_NOTE to a message for the user in those two cases.
+#
+# Parameters: none.
+#
+# Returns: 0.
+init_pick_remote() {
+    local name type found=()
+    INIT_REMOTE="drive:"
+    INIT_NOTE=""
+
+    while read -r name type; do
+        [[ "$type" == "drive" ]] && found+=("$name")
+    done < <(rclone listremotes --long 2>/dev/null)
+
+    case ${#found[@]} in
+        0) INIT_NOTE="no Google Drive remote found: run 'rclone config' and create one of type drive" ;;
+        1) INIT_REMOTE="${found[0]}" ;;
+        *) INIT_NOTE="several Google Drive remotes (${found[*]}): set REMOTE_NAME in the config" ;;
+    esac
+}
+
+# Run the init command: a safe, repeatable first-run setup. It creates the
+# service directory and the synced directory when they are missing, writes
+# ~/.drive-sync/drive-sync.conf only when it does not exist (naming the Google
+# Drive remote it finds), then runs the doctor checks against that remote.
+# It never overwrites a config and never touches files in the synced directory.
+#
+# Parameters:
+#   log_file: path to the active log file
+#   state_file: path to state.json
+#   local_path: the synced directory
+#
+# Returns: 0 when the setup is complete; EX_UNAVAILABLE when a doctor check
+#   fails (no remote, a missing tool). The report goes to stdout.
+run_init() {
+    local log_file="$1"
+    local state_file="$2"
+    local local_path="$3"
+    local conf="${DRIVE_SYNC_HOME}/drive-sync.conf"
+    local _COLOR_ON
+    use_color && _COLOR_ON=1 || _COLOR_ON=0
+
+    echo ""
+    style 36 "drive_sync init"; echo ""
+    echo ""
+
+    init_pick_remote
+    local remote="$INIT_REMOTE"
+
+    if [[ -f "$conf" ]]; then
+        echo "  $(style 32 "[ok]") config kept: $conf"
+        # The existing config decides the remote the checks use.
+        remote=$(get_remote_name)
+    else
+        cat > "$conf" << CONF
+# drive-sync settings. Anything here overrides the defaults in lib/config.sh.
+REMOTE_NAME="${remote}"
+# DRIVE_ROOT="\${HOME}/drive"
+# LOCAL_PATH="\${DRIVE_ROOT}"
+
+# Refuse a push or update that would delete more than this share of the files.
+# MAX_DELETE_PERCENT=50
+
+# Days to keep the original of every compressed PDF (0 turns it off).
+# QUARANTINE_RETENTION_DAYS=30
+
+# hash (default) keeps file names; suffix is the legacy *.optimized.pdf rename.
+# TRACKING_MODE=hash
+CONF
+        echo "  $(style 32 "[ok]") config written: $conf"
+    fi
+    [[ -n "$INIT_NOTE" ]] && echo "  $(style 33 "[warn]") $INIT_NOTE"
+
+    if [[ -d "$local_path" ]]; then
+        echo "  $(style 32 "[ok]") local directory $local_path"
+    else
+        mkdir -p "$local_path" && echo "  $(style 32 "[ok]") local directory created: $local_path"
+    fi
+
+    local rc=0
+    run_doctor "$log_file" "$state_file" "$remote" "$local_path" || rc=$?
+
+    if [[ $rc -eq 0 ]]; then
+        echo "Next:"
+        echo "  drive-sync.sh plan     see what a first sync would do (changes nothing)"
+        echo "  drive-sync.sh sync     run it"
+        echo ""
+    fi
+    return "$rc"
 }
 
 # Run the restore command: list the quarantined originals, or put one back.

@@ -25,7 +25,7 @@ CI (`.github/workflows/`) runs `make test` on push/PR to main; a separate `Relea
 
 ## Architecture
 
-Bash CLI, `set -euo pipefail`, no dependency manager, everything is sourced shell. `drive-sync.sh` is the entry point: it sources every `lib/*.sh` module in a fixed order (config, utils, logging, state, storage, limit, quarantine, compression, sync_ops, safety, memory, plan, cli), then `main()` validates the environment and dispatches to `push`/`pull`/`sync`/`update`/`plan`/`restore`/`status`/`doctor`/`ratelimit`. `doctor` skips `validate_environment` on purpose: it reports every problem instead of exiting at the first.
+Bash CLI, `set -euo pipefail`, no dependency manager, everything is sourced shell. `drive-sync.sh` is the entry point: it sources every `lib/*.sh` module in a fixed order (config, utils, logging, state, storage, limit, quarantine, compression, sync_ops, safety, memory, plan, cli), then `main()` validates the environment and dispatches to `init`/`push`/`pull`/`sync`/`update`/`plan`/`restore`/`status`/`doctor`/`ratelimit`. `doctor` and `init` skip `validate_environment` on purpose: they report every problem instead of exiting at the first. `init` (`run_init` in `cli.sh`) writes `~/.drive-sync/drive-sync.conf` only when absent, naming the single Google Drive remote that `rclone listremotes --long` shows, creates the local directory, then runs `run_doctor` against that remote (exit 69 on a failed check).
 
 Every `lib/*.sh` file guards against direct execution (`[[ "${BASH_SOURCE[0]}" == "${0}" ]] && exit 1`). They're libraries, not scripts, and must be sourced.
 

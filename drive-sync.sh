@@ -299,7 +299,7 @@ do_sync() {
 #=============================================================================
 
 # Entry point: load settings, parse arguments, validate the environment
-# and dispatch to push/pull/sync/update/plan/restore/status/doctor/ratelimit. Exit codes
+# and dispatch to init/push/pull/sync/update/plan/restore/status/doctor/ratelimit. Exit codes
 # follow docs/CONTRACT.md: bare invocation is a usage error (EX_USAGE),
 # while -h/--help and -V/--version exit 0.
 #
@@ -348,7 +348,7 @@ main() {
     init_logging "$log_file"
     init_state "$log_file" "$state_file" "$lock_file"
     # doctor reports every problem itself, so it must not stop at the first one.
-    [[ "$1" == "doctor" ]] || validate_environment "$log_file" "$remote_name"
+    [[ "$1" == "doctor" || "$1" == "init" ]] || validate_environment "$log_file" "$remote_name"
 
     command="$1"
     shift
@@ -416,6 +416,9 @@ main() {
                       "$remote_name" "$optimized_marker" "$gs_device" \
                       "$min_valid_size" "${plan_dir:-sync}" "$plan_json" \
                       "$plan_measure"
+            ;;
+        init)
+            run_init "$log_file" "$state_file" "$local_path"
             ;;
         restore)
             run_restore "$log_file" "$state_file" "$lock_file" "$local_path" \
