@@ -24,7 +24,11 @@
 #   separated MOCK_RCLONE_PLAN_COPY_NAMES and MOCK_RCLONE_PLAN_DELETE_NAMES,
 #   and exits MOCK_RCLONE_PLAN_EXIT
 #   (default 0).
-# lsf: prints MOCK_RCLONE_LSF_COUNT (default 0) file names, one per line.
+# lsf: prints the space separated names in MOCK_RCLONE_LSF_NAMES, or
+#   MOCK_RCLONE_LSF_COUNT (default 0) generated names, one per line; exits
+#   MOCK_RCLONE_LSF_EXIT (default 0).
+# delete: copies the --files-from-raw list to MOCK_STATE_DIR/deleted_files.txt
+#   and exits MOCK_RCLONE_DELETE_EXIT (default 0).
 #
 # Every other invocation appends its full argv to
 # MOCK_STATE_DIR/rclone_calls.log.
@@ -88,10 +92,27 @@ case "$subcommand" in
         exit 0
         ;;
     lsf)
+        # Like the real rclone, lsf rejects the sync-only flags.
+        if [[ "$*" == *"--create-empty-src-dirs"* || "$*" == *"--size-only"* ]]; then
+            echo "Error: unknown flag: --create-empty-src-dirs" >&2
+            exit 1
+        fi
+        if [[ -n "${MOCK_RCLONE_LSF_NAMES:-}" ]]; then
+            printf '%s\n' $MOCK_RCLONE_LSF_NAMES
+            exit "${MOCK_RCLONE_LSF_EXIT:-0}"
+        fi
         for ((i = 1; i <= ${MOCK_RCLONE_LSF_COUNT:-0}; i++)); do
             printf 'file%s.txt\n' "$i"
         done
-        exit 0
+        exit "${MOCK_RCLONE_LSF_EXIT:-0}"
+        ;;
+    delete)
+        prev=""
+        for arg in "$@"; do
+            [[ "$prev" == "--files-from-raw" ]] && cp "$arg" "$state_dir/deleted_files.txt"
+            prev="$arg"
+        done
+        exit "${MOCK_RCLONE_DELETE_EXIT:-0}"
         ;;
     listremotes)
         printf '%s\n' "${MOCK_RCLONE_REMOTES:-drive:}"

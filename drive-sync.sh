@@ -30,6 +30,7 @@ source "${LIB_DIR}/quarantine.sh"
 source "${LIB_DIR}/compression.sh"
 source "${LIB_DIR}/sync_ops.sh"
 source "${LIB_DIR}/safety.sh"
+source "${LIB_DIR}/memory.sh"
 source "${LIB_DIR}/plan.sh"
 source "${LIB_DIR}/cli.sh"
 
@@ -186,6 +187,7 @@ do_sync() {
 
     local attempt=1
     local guarded="false"
+    local memory_done="false"
 
     [[ "$dry_run" == "true" ]] || quarantine_prune "$log_file"
 
@@ -236,6 +238,10 @@ do_sync() {
                 fi
                 ;;
             sync)
+                if [[ "$memory_done" != "true" ]]; then
+                    sync_memory_prepass "$log_file" "$local_path" "$remote_name" "$dry_run" || return 1
+                    memory_done="true"
+                fi
                 if sync_from_drive "$log_file" "$local_path" "$remote_name" "$dry_run"; then
                     local pull_result=0
                 else
@@ -270,7 +276,15 @@ do_sync() {
         set -e
 
         case $handle_result in
-            0) return 0 ;;
+            0)
+                # After these, both sides match: remember what they share.
+                if [[ "$dry_run" != "true" ]]; then
+                    case "$direction" in
+                        push|sync|update)
+                            memory_write_manifest "$log_file" "$local_path" "$(get_manifest_file)" || true ;;
+                    esac
+                fi
+                return 0 ;;
             2) attempt=$((attempt + 1)); continue ;;
             *) return "$handle_result" ;;
         esac

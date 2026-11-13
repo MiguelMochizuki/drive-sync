@@ -140,3 +140,46 @@ snapshot() {
     run --separate-stderr plan push
     [[ "$output" == *"1 PDF, "* ]]
 }
+
+@test "plan sync without a manifest says there is none yet" {
+    run --separate-stderr plan --json
+    [ "$(jq -r '.memory.manifest' <<< "$output")" = "false" ]
+    run --separate-stderr plan
+    [[ "$output" == *"Since last sync"* ]]
+    [[ "$output" == *"No manifest yet"* ]]
+}
+
+@test "plan sync with a manifest counts what the sync would honor on each side" {
+    echo a > "$HOME/drive/a.txt"; echo b > "$HOME/drive/b.txt"; echo o > "$HOME/drive/old.txt"
+    rm "$HOME/drive/big.pdf"
+    printf 'a.txt\nb.txt\nold.txt\ngone.txt\n' > "$HOME/.drive-sync/manifest"
+    export MOCK_RCLONE_LSF_NAMES="a.txt b.txt gone.txt c.txt d.txt e.txt f.txt g.txt h.txt i.txt"
+    export MOCK_RCLONE_PLAN_COPY_NAMES="gone.txt"
+    export MOCK_RCLONE_PLAN_DELETE_NAMES="gone.txt"
+    run --separate-stderr plan --json
+    [ "$status" -eq 0 ]
+    [ "$(jq -r '.memory.manifest' <<< "$output")" = "true" ]
+    [ "$(jq -r '.memory.removed_local' <<< "$output")" = "1" ]
+    [ "$(jq -r '.memory.removed_remote' <<< "$output")" = "1" ]
+    [ "$(jq -r '.transfers.push.delete.count' <<< "$output")" = "1" ]
+    run --separate-stderr plan
+    [[ "$output" == *"1 files removed here"* ]]
+    [[ "$output" == *"1 files removed on Drive"* ]]
+}
+
+@test "plan push and pull have no memory section" {
+    run --separate-stderr plan push --json
+    [ "$(jq -r '.memory' <<< "$output")" = "null" ]
+}
+
+@test "plan sync with a manifest changes nothing" {
+    echo a > "$HOME/drive/a.txt"
+    printf 'a.txt\ngone.txt\n' > "$HOME/.drive-sync/manifest"
+    export MOCK_RCLONE_LSF_NAMES="a.txt gone.txt"
+    plan --json > /dev/null
+    before=$(snapshot; cat "$HOME/.drive-sync/manifest")
+    plan > /dev/null
+    [ "$(snapshot; cat "$HOME/.drive-sync/manifest")" = "$before" ]
+    run grep -qE '^delete ' "$MOCK_STATE_DIR/rclone_calls.log"
+    [ "$status" -ne 0 ]
+}

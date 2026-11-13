@@ -41,6 +41,27 @@ discard local changes and match Drive exactly.
 Because `push` and `update` delete files, both are guarded; see
 [Safety](#safety).
 
+### Renames and removals in a sync
+
+`sync` remembers what both sides shared at the last successful `push`,
+`sync` or `update` (the manifest, `~/.drive-sync/manifest`) and honors what
+changed on each side since then:
+
+- a file you removed or renamed here is removed from Drive, into its trash;
+- a file removed or renamed on Drive is moved from your directory into
+  `~/.drive-sync/archive/`, under the same retention as the quarantine;
+- a file that is new on one side is copied to the other.
+
+A rename is a removal plus a new file, so nothing is duplicated and you do
+not have to pick `push` or `update` by hand. The deletion limit and the
+confirmation apply to these removals too (see [Safety](#safety)), and
+`plan` lists both counts under "Since last sync". There is no conflict
+resolution: a file edited on one side and removed on the other follows the
+removal. The first `sync` after upgrading has no manifest, so it pulls and
+pushes as before and records one. Run `push` first if you want removals you
+made before upgrading to reach Drive. A rename still uploads the whole file
+again, because rclone's rename tracking is not used.
+
 ## Quick Start
 
 Prerequisites are listed under [Main Tools & Stack](#main-tools--stack).
@@ -84,6 +105,7 @@ drive-sync/
 │   ├── config.sh
 │   ├── limit.sh
 │   ├── logging.sh
+│   ├── memory.sh
 │   ├── plan.sh
 │   ├── quarantine.sh
 │   ├── safety.sh
@@ -108,7 +130,7 @@ drive-sync/
 
 ### Key modules
 
-`drive-sync.sh` is the entry point and sources the twelve modules under
+`drive-sync.sh` is the entry point and sources the thirteen modules under
 `lib/`:
 
 | Module | Responsibility |
@@ -121,6 +143,7 @@ drive-sync/
 | `safety.sh` | Deletion guard: plan, percentage limit, confirmation |
 | `plan.sh` | The read-only `plan` report: compression, transfers, deletions |
 | `quarantine.sh` | Keeps replaced originals for a while, prunes them, restores them |
+| `memory.sh` | The sync manifest: honors removals and renames made on either side |
 | `logging.sh` | Structured logging with rotation |
 | `state.sh` | JSON state persistence with file locking |
 | `utils.sh` | Path validation and formatting helpers |
