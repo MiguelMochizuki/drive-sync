@@ -24,7 +24,9 @@ remote in step. Before uploading, it compresses PDFs with Ghostscript.
 1. **Scan**: find all PDFs in the local directory
 2. **Compress**: optimize with Ghostscript
    - files under 10 KB are marked optimized without compressing
-   - successfully compressed files are renamed with `.optimized.pdf`
+   - a compressed file replaces the original in place (same name), only
+     when it is smaller and valid; its content hash is recorded in
+     `state.json` so it is not processed again
    - failed compressions leave the original in place for retry
 3. **Sync**: transfer files to or from Drive
 4. **Monitor**: detect and recover from rate limits
@@ -35,6 +37,9 @@ remote in step. Before uploading, it compresses PDFs with Ghostscript.
 updates local files. `update` is the reverse of `push`: it mirrors Drive
 to local, so any local file no longer on Drive is deleted. Use it to
 discard local changes and match Drive exactly.
+
+Because `push` and `update` delete files, both are guarded; see
+[Safety](#safety).
 
 ## Quick Start
 
@@ -79,6 +84,7 @@ drive-sync/
 │   ├── config.sh
 │   ├── limit.sh
 │   ├── logging.sh
+│   ├── safety.sh
 │   ├── state.sh
 │   ├── storage.sh
 │   ├── sync_ops.sh
@@ -100,7 +106,7 @@ drive-sync/
 
 ### Key modules
 
-`drive-sync.sh` is the entry point and sources the nine modules under
+`drive-sync.sh` is the entry point and sources the ten modules under
 `lib/`:
 
 | Module | Responsibility |
@@ -110,6 +116,7 @@ drive-sync/
 | `compression.sh` | PDF compression with safety guarantees |
 | `storage.sh` | Storage usage in binary units (GiB, MiB, KiB) |
 | `limit.sh` | Rate limit detection and recovery |
+| `safety.sh` | Deletion guard: plan, percentage limit, confirmation |
 | `logging.sh` | Structured logging with rotation |
 | `state.sh` | JSON state persistence with file locking |
 | `utils.sh` | Path validation and formatting helpers |
@@ -139,6 +146,7 @@ drive-sync pull         # download from Drive, never deletes locally
 drive-sync sync         # pull, then push
 drive-sync update       # mirror from Drive, deleting local files not on Drive
 drive-sync status       # show sync status and storage usage
+drive-sync doctor       # check dependencies, remote, state and settings
 drive-sync ratelimit    # manual rate limit recovery
 ```
 
@@ -147,7 +155,7 @@ drive-sync ratelimit    # manual rate limit recovery
 | Flag | Description |
 |---|---|
 | `-n`, `--dry-run` | Preview changes without syncing |
-| `-f`, `--force` | Skip confirmations |
+| `-f`, `--force` | Skip the deletion confirmation (the deletion limit still applies) |
 | `-v`, `--verbose` | Show detailed progress (INFO/SUCCESS lines) |
 | `-h`, `--help` | Show help text |
 | `-V`, `--version` | Show version |
@@ -182,7 +190,11 @@ RETRY_DELAY=60
 | `RCLONE_TIMEOUT` | `5m` | Operation timeout |
 | `RCLONE_RETRIES` | `3` | rclone internal retries |
 | `RCLONE_DRIVE_CHUNK_SIZE` | `128M` | Upload chunk size |
-| `OPTIMIZED_MARKER` | `.optimized.pdf` | PDF compression suffix |
+| `TRACKING_MODE` | `hash` | `hash` keeps file names and tracks content in `state.json`; `suffix` is the legacy `*.optimized.pdf` renaming |
+| `MAX_DELETE_PERCENT` | `50` | Abort a push/update that would delete more than this percentage of the destination |
+| `ARCHIVE_DIR` | `~/.drive-sync/archive` | Where `update` moves the local files it would delete |
+| `REMOTE_BACKUP_DIR` | empty | Optional rclone `--backup-dir` for `push`; must be outside the destination |
+| `OPTIMIZED_MARKER` | `.optimized.pdf` | Legacy suffix: files carrying it are recognized as optimized |
 | `GHOSTSCRIPT_DEVICE` | `pdfwrite` | Ghostscript output device |
 | `MIN_VALID_COMPRESSED_SIZE` | `1024` | Minimum valid compressed size, in bytes |
 | `RATE_LIMIT_BACKOFF_SECONDS` | `300` | Rate limit wait period |
@@ -192,6 +204,38 @@ RETRY_DELAY=60
 Changing `OPTIMIZED_MARKER`, `GHOSTSCRIPT_DEVICE`, or
 `MIN_VALID_COMPRESSED_SIZE` mid-workflow can leave already-processed
 files in an inconsistent state; see the warnings in `lib/config.sh`.
+
+### Safety
+
+`push` and `update` run `rclone sync`, which deletes. Before either runs,
+drive-sync does a dry run and counts what would be deleted:
+
+- If that is more than `MAX_DELETE_PERCENT` of the destination's files
+  (default 50%), it aborts with exit 1, even with `-f` and even without a
+  terminal. This catches an unmounted disk or an emptied folder before a
+  `push` wipes Drive. Set `MAX_DELETE_PERCENT=100` to disable the limit.
+- On a terminal it asks `Continue? [y/N]`; `-f` skips the question. Under
+  cron or a pipe there is no prompt, only the limit.
+- If the dry run itself fails, it aborts rather than proceed blind.
+- `--dry-run` skips all of this, and `pull` and the pull half of `sync`
+  never delete, so they are never guarded.
+
+What is deleted stays recoverable:
+
+- `push` sends remote deletions to Google Drive's trash
+  (`--drive-use-trash`). rclone refuses a `--backup-dir` inside the
+  destination, so a Drive-side archive only works when `REMOTE_NAME`
+  points at a subfolder (`REMOTE_NAME="drive:Sync"`,
+  `REMOTE_BACKUP_DIR="drive:Sync-archive"`).
+- `update` moves local files it would delete into
+  `~/.drive-sync/archive/<timestamp>/`. Nothing prunes that directory yet.
+
+### State and migration
+
+`state.json` is schema 2: besides the sync fields it keeps a `files` map of
+relative path to `{hash, original_size, size, mtime}`. A v1 file is migrated
+on the first run, and the old one is kept as `state.json.bak-v1`. Files
+already renamed to `*.optimized.pdf` are left alone and still recognized.
 
 ### Rate limiting
 
@@ -205,9 +249,9 @@ distinguished from fatal ones (exit 7), which are not retried.
 | Code | Meaning |
 |---|---|
 | `0` | Success |
-| `1` | General failure |
+| `1` | General failure, or the deletion guard aborted (limit exceeded, plan unavailable, or you answered no) |
 | `2` | Usage error: unknown command, unknown flag, or no arguments |
-| `69` | Resource unavailable: fatal rclone error, or a missing dependency/remote |
+| `69` | Resource unavailable: fatal rclone error, a missing dependency/remote, or a failed `doctor` check |
 | `75` | Temporary failure: retries exhausted after transient or rate-limit errors |
 
 See [`docs/CONTRACT.md`](docs/CONTRACT.md) for the full exit-code and

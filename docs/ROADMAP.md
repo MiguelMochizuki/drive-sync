@@ -44,6 +44,22 @@ used, so no confirmation exists today: `push` and `update` run
 `rclone sync` and delete files without asking, and neither passes
 `--backup-dir`.
 
+## Status
+
+**v2.2 is implemented** (branch `feat/v2.2-safe-base`): real confirmation,
+deletion limit, backups, hash-based state with migration, and `doctor`.
+Deviations from the plan above:
+
+- A Drive-side `--backup-dir` is impossible when the remote is the Drive
+  root: rclone refuses a backup directory inside the destination. `push`
+  pins `--drive-use-trash` instead, and `REMOTE_BACKUP_DIR` is optional
+  for remotes that point at a subfolder. `update` archives locally.
+- The deletion limit applies even with `-f`; only the confirmation is
+  skippable. A failed dry run aborts rather than proceeding blind.
+- Nothing prunes `~/.drive-sync/archive/` yet; retention arrives with the
+  v3.0 quarantine.
+- The version is still 2.1.0; bumping it is part of the release.
+
 ## Phases
 
 1. **v2.2, safe base:** real confirmation, `--backup-dir`, deletion
