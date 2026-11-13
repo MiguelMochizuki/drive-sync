@@ -45,6 +45,42 @@ compress_would_process() {
 # Single File Compression
 #=============================================================================
 
+# Run Ghostscript on one PDF with the compression settings drive-sync uses.
+# compress_pdf and the plan command's measure mode both call it, so a
+# measured figure is what a real run would produce.
+#
+# Parameters:
+#   gs_device: the Ghostscript output device, for example "pdfwrite"
+#   input: the PDF to compress
+#   output: where to write the result
+#
+# Returns: the exit status of gs.
+run_gs_compress() {
+    local gs_device="$1"
+    local input="$2"
+    local output="$3"
+
+    gs -sDEVICE="$gs_device" \
+        -dPDFSETTINGS=/printer \
+        -dCompatibilityLevel=1.7 \
+        -dNOPAUSE -dQUIET -dBATCH \
+        -dDetectDuplicateImages=true \
+        -dOptimize=true \
+        -dCompressFonts=true \
+        -dSubsetFonts=true \
+        -dEmbedAllFonts=false \
+        -dMaxSubsetPct=100 \
+        -dMonoImageDownsampleType=/Bicubic \
+        -dMonoImageResolution=300 \
+        -dGrayImageDownsampleType=/Bicubic \
+        -dGrayImageResolution=200 \
+        -dColorImageDownsampleType=/Bicubic \
+        -dColorImageResolution=200 \
+        -dJPEGQuality=80 \
+        -sOutputFile="$output" \
+          "$input" 2>/dev/null
+}
+
 # Compress one PDF with Ghostscript, or mark it optimized without
 # compressing, per the module's core invariant: the original is never
 # deleted unless compression both succeeds and produces a smaller file.
@@ -121,25 +157,7 @@ compress_pdf() {
     [[ "$mode" == "hash" ]] && optimized_file="$validated_path"
     local temp_output="${optimized_file}.tmp.$$.pdf"
 
-    if gs -sDEVICE="$gs_device" \
-          -dPDFSETTINGS=/printer \
-          -dCompatibilityLevel=1.7 \
-          -dNOPAUSE -dQUIET -dBATCH \
-          -dDetectDuplicateImages=true \
-          -dOptimize=true \
-          -dCompressFonts=true \
-          -dSubsetFonts=true \
-          -dEmbedAllFonts=false \
-          -dMaxSubsetPct=100 \
-          -dMonoImageDownsampleType=/Bicubic \
-          -dMonoImageResolution=300 \
-          -dGrayImageDownsampleType=/Bicubic \
-          -dGrayImageResolution=200 \
-          -dColorImageDownsampleType=/Bicubic \
-          -dColorImageResolution=200 \
-          -dJPEGQuality=80 \
-          -sOutputFile="$temp_output" \
-          "$validated_path" 2>/dev/null; then
+    if run_gs_compress "$gs_device" "$validated_path" "$temp_output"; then
 
         local new_size
         new_size=$(get_file_size "$temp_output") || new_size=0

@@ -29,6 +29,7 @@ source "${LIB_DIR}/limit.sh"
 source "${LIB_DIR}/compression.sh"
 source "${LIB_DIR}/sync_ops.sh"
 source "${LIB_DIR}/safety.sh"
+source "${LIB_DIR}/plan.sh"
 source "${LIB_DIR}/cli.sh"
 
 #=============================================================================
