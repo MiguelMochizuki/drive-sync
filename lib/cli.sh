@@ -21,10 +21,10 @@
 #   used for a usage error, per docs/CONTRACT.md.
 show_usage() {
     cat << EOF
-USAGE:
+Usage:
   drive-sync.sh [COMMAND] [OPTIONS]
 
-COMMANDS:
+Commands:
   init, push, pull, sync, update, plan, restore, status, doctor, ratelimit
 
 Run 'drive-sync.sh --help' for details.
@@ -38,12 +38,12 @@ EOF
 # Returns: the help text on stdout.
 show_help() {
     cat << EOF
-drive_sync v${VERSION}: Simple Google Drive sync with PDF compression
+drive-sync ${VERSION}: Simple Google Drive sync with PDF compression
 
-USAGE:
+Usage:
   drive-sync.sh [COMMAND] [OPTIONS]
 
-COMMANDS:
+Commands:
   init      First-run setup: config file, local directory, remote check
   push      Upload local changes (compresses PDFs)
   pull      Download remote changes
@@ -55,16 +55,24 @@ COMMANDS:
   doctor    Check dependencies, remote, state and safety settings
   ratelimit Recover from rate limiting
 
-OPTIONS:
+Options:
   -n, --dry-run   Preview changes (no file is modified; -v lists PDFs to compress)
   --json          With plan: print the report as JSON
   --measure       With plan: measure PDF savings with gs instead of estimating
   -f, --force     Skip confirmations
   -v, --verbose   Show detailed progress
+  -q, --quiet     Hide warnings (errors still shown; the log file keeps everything)
   -h, --help      Show this help
   -V, --version   Show version
 
-EXAMPLES:
+Exit codes:
+  0   success
+  1   failure
+  2   invalid usage
+  69  resource unavailable (missing dependency, auth revoked)
+  75  temporary failure (retries exhausted, run lock held)
+
+Examples:
   drive-sync.sh init
   drive-sync.sh status
   drive-sync.sh push
@@ -119,7 +127,7 @@ run_init() {
     use_color && _COLOR_ON=1 || _COLOR_ON=0
 
     echo ""
-    style 36 "drive_sync init"; echo ""
+    style 36 "drive-sync init"; echo ""
     echo ""
 
     init_pick_remote
@@ -223,7 +231,7 @@ run_doctor() {
     use_color && _COLOR_ON=1 || _COLOR_ON=0
 
     echo ""
-    style 36 "drive_sync doctor"; echo ""
+    style 36 "drive-sync doctor"; echo ""
     echo ""
 
     for tool in rclone gs jq flock; do
@@ -365,7 +373,7 @@ show_status() {
     use_color && _COLOR_ON=1 || _COLOR_ON=0
 
     echo ""
-    style 36 "drive_sync v${VERSION}"; echo ""
+    style 36 "drive-sync ${VERSION}"; echo ""
     echo ""
 
     style 36 "Paths"; echo ""

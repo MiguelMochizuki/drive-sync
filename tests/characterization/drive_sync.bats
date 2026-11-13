@@ -21,37 +21,37 @@ teardown() {
 @test "--version prints the version and exits 0" {
     run "$REPO_ROOT/drive-sync.sh" --version
     [ "$status" -eq 0 ]
-    [[ "$output" == *"drive_sync version 3.0.0"* ]]
+    [[ "$output" == *"drive-sync 3.0.0"* ]]
 }
 
 @test "--help prints usage and exits 0" {
     run "$REPO_ROOT/drive-sync.sh" --help
     [ "$status" -eq 0 ]
-    [[ "$output" == *"USAGE:"* ]]
+    [[ "$output" == *"Usage:"* ]]
 }
 
 @test "no arguments exits 2 and prints usage to stderr" {
     run --separate-stderr "$REPO_ROOT/drive-sync.sh"
     [ "$status" -eq 2 ]
-    [[ "$stderr" == *"USAGE:"* ]]
+    [[ "$stderr" == *"Usage:"* ]]
 }
 
 @test "an unknown command exits 2 and prints usage to stderr" {
     run --separate-stderr "$REPO_ROOT/drive-sync.sh" bogus
     [ "$status" -eq 2 ]
-    [[ "$stderr" == *"USAGE:"* ]]
+    [[ "$stderr" == *"Usage:"* ]]
 }
 
 @test "an unknown flag exits 2 and prints usage to stderr" {
     run --separate-stderr "$REPO_ROOT/drive-sync.sh" push --bogus
     [ "$status" -eq 2 ]
-    [[ "$stderr" == *"USAGE:"* ]]
+    [[ "$stderr" == *"Usage:"* ]]
 }
 
 @test "status runs end to end against the mocked remote" {
     run "$REPO_ROOT/drive-sync.sh" status
     [ "$status" -eq 0 ]
-    [[ "$output" == *"drive_sync v3.0.0"* ]]
+    [[ "$output" == *"drive-sync 3.0.0"* ]]
     [[ "$output" == *"Local:"* ]]
     [[ "$output" == *"Remote: drive:"* ]]
 }

@@ -31,7 +31,7 @@ console at all. No line is duplicated across streams.
 | Level | Log file | Console (default) | Console (-v) |
 |---|---|---|---|
 | ERROR | always | stderr | stderr |
-| WARNING | always | stderr | stderr |
+| WARNING | always | stderr (silent with -q) | stderr (silent with -q) |
 | INFO | always | silent | stdout |
 | SUCCESS | always | silent | stdout |
 

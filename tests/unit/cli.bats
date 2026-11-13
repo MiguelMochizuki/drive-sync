@@ -14,7 +14,7 @@ teardown() {
 
 @test "show_usage prints a short synopsis" {
     run show_usage
-    [[ "$output" == *"USAGE:"* ]]
+    [[ "$output" == *"Usage:"* ]]
     [[ "$output" == *"drive-sync.sh [COMMAND] [OPTIONS]"* ]]
 }
 
