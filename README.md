@@ -152,8 +152,9 @@ drive-sync ratelimit    # manual rate limit recovery
 
 ### Status output
 
-`status` prints plain text in sections. On a terminal the headings are
-bold and the sync status is colored; set `NO_COLOR` to turn that off.
+`status` prints plain text in sections, and `doctor` follows the same
+style. On a terminal titles are cyan, `[ok]` is green, `[FAIL]` is red and
+`[warn]` is yellow; there is no bold. Set `NO_COLOR` to turn color off.
 Redirected output never contains escape codes.
 
 ```
