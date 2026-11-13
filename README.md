@@ -210,7 +210,7 @@ style. On a terminal titles are cyan, `[ok]` is green, `[FAIL]` is red and
 Redirected output never contains escape codes.
 
 ```
-drive-sync 3.0.0
+drive-sync 3.1.0
 
 Paths
   Local: /home/you/drive

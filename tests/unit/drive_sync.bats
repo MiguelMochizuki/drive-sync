@@ -68,7 +68,7 @@ teardown() {
 @test "-V prints the version and exits 0" {
     run "$REPO_ROOT/drive-sync.sh" -V
     [ "$status" -eq 0 ]
-    [[ "$output" == *"drive-sync 3.0.0"* ]]
+    [[ "$output" == *"drive-sync 3.1.0"* ]]
 }
 
 @test "-v is now the short form of --verbose" {

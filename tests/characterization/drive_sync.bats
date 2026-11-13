@@ -21,7 +21,7 @@ teardown() {
 @test "--version prints the version and exits 0" {
     run "$REPO_ROOT/drive-sync.sh" --version
     [ "$status" -eq 0 ]
-    [[ "$output" == *"drive-sync 3.0.0"* ]]
+    [[ "$output" == *"drive-sync 3.1.0"* ]]
 }
 
 @test "--help prints usage and exits 0" {
@@ -51,7 +51,7 @@ teardown() {
 @test "status runs end to end against the mocked remote" {
     run "$REPO_ROOT/drive-sync.sh" status
     [ "$status" -eq 0 ]
-    [[ "$output" == *"drive-sync 3.0.0"* ]]
+    [[ "$output" == *"drive-sync 3.1.0"* ]]
     [[ "$output" == *"Local:"* ]]
     [[ "$output" == *"Remote: drive:"* ]]
 }
