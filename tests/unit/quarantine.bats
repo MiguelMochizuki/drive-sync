@@ -118,21 +118,24 @@ entries() {
 }
 
 @test "prune uses the timestamp in the name, not the file mtime" {
+    local t40; t40=$(stamp 40)
+    local t5; t5=$(stamp 5)
     mkdir -p "$QUARANTINE_DIR/old.pdf" "$QUARANTINE_DIR/new.pdf"
-    echo x > "$QUARANTINE_DIR/old.pdf/$(stamp 40)"
-    echo y > "$QUARANTINE_DIR/new.pdf/$(stamp 5)"
-    touch -d 2001-01-01 "$QUARANTINE_DIR/old.pdf/$(stamp 40)" "$QUARANTINE_DIR/new.pdf/$(stamp 5)"
+    echo x > "$QUARANTINE_DIR/old.pdf/$t40"
+    echo y > "$QUARANTINE_DIR/new.pdf/$t5"
+    touch -d 2001-01-01 "$QUARANTINE_DIR/old.pdf/$t40" "$QUARANTINE_DIR/new.pdf/$t5"
     quarantine_prune "$LOG_FILE"
     [ ! -e "$QUARANTINE_DIR/old.pdf" ]
-    [ -f "$QUARANTINE_DIR/new.pdf/$(stamp 5)" ]
+    [ -f "$QUARANTINE_DIR/new.pdf/$t5" ]
 }
 
 @test "prune removes only timestamp named archive directories that are old" {
-    mkdir -p "$ARCHIVE_DIR/20200101T000000" "$ARCHIVE_DIR/notes" "$ARCHIVE_DIR/$(stamp 2)"
+    local t2; t2=$(stamp 2)
+    mkdir -p "$ARCHIVE_DIR/20200101T000000" "$ARCHIVE_DIR/notes" "$ARCHIVE_DIR/$t2"
     quarantine_prune "$LOG_FILE"
     [ ! -e "$ARCHIVE_DIR/20200101T000000" ]
     [ -d "$ARCHIVE_DIR/notes" ]
-    [ -d "$ARCHIVE_DIR/$(stamp 2)" ]
+    [ -d "$ARCHIVE_DIR/$t2" ]
 }
 
 @test "prune does nothing at retention 0 or under a dry run" {
@@ -144,18 +147,22 @@ entries() {
 }
 
 @test "list prints path, timestamp and size, oldest first" {
+    local t3; t3=$(stamp 3)
+    local t9; t9=$(stamp 9)
     mkdir -p "$QUARANTINE_DIR/b.pdf" "$QUARANTINE_DIR/a/c.pdf"
-    head -c 10 /dev/zero > "$QUARANTINE_DIR/b.pdf/$(stamp 3)"
-    head -c 20 /dev/zero > "$QUARANTINE_DIR/a/c.pdf/$(stamp 9)"
+    head -c 10 /dev/zero > "$QUARANTINE_DIR/b.pdf/$t3"
+    head -c 20 /dev/zero > "$QUARANTINE_DIR/a/c.pdf/$t9"
     run quarantine_list
-    [ "${lines[0]}" = "$(printf 'a/c.pdf\t%s\t20' "$(stamp 9)")" ]
-    [ "${lines[1]}" = "$(printf 'b.pdf\t%s\t10' "$(stamp 3)")" ]
+    [ "${lines[0]}" = "$(printf 'a/c.pdf\t%s\t20' "$t9")" ]
+    [ "${lines[1]}" = "$(printf 'b.pdf\t%s\t10' "$t3")" ]
 }
 
 @test "summary prints the count and the total bytes" {
+    local t3; t3=$(stamp 3)
+    local t4; t4=$(stamp 4)
     mkdir -p "$QUARANTINE_DIR/b.pdf" "$QUARANTINE_DIR/c.pdf"
-    head -c 10 /dev/zero > "$QUARANTINE_DIR/b.pdf/$(stamp 3)"
-    head -c 20 /dev/zero > "$QUARANTINE_DIR/c.pdf/$(stamp 4)"
+    head -c 10 /dev/zero > "$QUARANTINE_DIR/b.pdf/$t3"
+    head -c 20 /dev/zero > "$QUARANTINE_DIR/c.pdf/$t4"
     [ "$(quarantine_summary)" = "$(printf '2\t30')" ]
 }
 
@@ -177,13 +184,15 @@ entries() {
 }
 
 @test "restore takes the newest version and accepts an absolute path" {
+    local t2; t2=$(stamp 2)
+    local t9; t9=$(stamp 9)
     mkdir -p "$QUARANTINE_DIR/a.pdf"
-    printf old > "$QUARANTINE_DIR/a.pdf/$(stamp 9)"
-    printf newest > "$QUARANTINE_DIR/a.pdf/$(stamp 2)"
+    printf old > "$QUARANTINE_DIR/a.pdf/$t9"
+    printf newest > "$QUARANTINE_DIR/a.pdf/$t2"
     run quarantine_restore "$LOG_FILE" "$STATE_FILE" "$LOCK_FILE" "$LOCAL_PATH" "$LOCAL_PATH/a.pdf"
     [ "$status" -eq 0 ]
     [ "$(cat "$LOCAL_PATH/a.pdf")" = "newest" ]
-    [ -f "$QUARANTINE_DIR/a.pdf/$(stamp 9)" ]
+    [ -f "$QUARANTINE_DIR/a.pdf/$t9" ]
 }
 
 @test "restore of a path with nothing quarantined returns 1" {
