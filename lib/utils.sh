@@ -180,6 +180,14 @@ get_file_size() {
 # Size Formatting (decimal units)
 #=============================================================================
 
+# Format a byte count in decimal units (B, KB, MB, GB; 1 KB = 1000 B).
+# Uses bc for two decimals when available, integer division otherwise.
+# Binary units (GiB/MiB/KiB) live in lib/storage.sh.
+#
+# Parameters:
+#   bytes: size in bytes
+#
+# Returns: 0; prints the formatted size on stdout.
 format_bytes_decimal() {
     local bytes="$1"
     local unit="B"

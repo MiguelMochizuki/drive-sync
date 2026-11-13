@@ -69,6 +69,16 @@ EOF
 # Status Display
 #=============================================================================
 
+# Print the status report: local/remote names, last sync and status from
+# the state file, PDF counts (total/optimized/pending) with local size,
+# and the remote's storage usage.
+#
+# Parameters:
+#   log_file: path to the active log file
+#   state_file: path to state.json
+#   remote_name: the configured rclone remote
+#   local_path: local directory being synced
+#   optimized_marker: suffix marking already-compressed PDFs
 show_status() {
     local log_file="$1"
     local state_file="$2"

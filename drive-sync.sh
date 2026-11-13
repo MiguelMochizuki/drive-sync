@@ -34,6 +34,15 @@ source "${LIB_DIR}/cli.sh"
 # Environment Validation
 #=============================================================================
 
+# Check that required tools are installed and the rclone remote exists.
+# Exits the process with EX_UNAVAILABLE when anything required is missing;
+# a missing bc is only a warning (integer arithmetic is used instead).
+#
+# Parameters:
+#   log_file: path to the active log file
+#   remote_name: the configured rclone remote that must be listed
+#
+# Returns: 0 when the environment is valid; does not return otherwise.
 validate_environment() {
     local log_file="$1"
     local remote_name="$2"
@@ -70,6 +79,24 @@ validate_environment() {
 # Sync Orchestrator
 #=============================================================================
 
+# Translate the private 0/1/2/3 result of a sync operation into a decision:
+# done, retry, or give up. The code returned here is consumed by do_sync,
+# not the process's final exit code.
+#
+# Parameters:
+#   log_file: path to the active log file
+#   remote_name: the configured rclone remote
+#   state_file: path to state.json
+#   lock_file: path to the flock file
+#   backoff_seconds: wait used when recovering from a rate limit
+#   retry_delay: seconds to wait before retrying an unclassified failure
+#   result: sync_ops result (0 success, 2 temporary, 3 fatal, 1 other)
+#   attempt: current attempt number, starting at 1
+#   max_retries: maximum number of attempts
+#
+# Returns: 0 on success; 2 to ask do_sync to retry (after recovery or
+#   delay); EX_TEMPFAIL when recovery failed or retries are exhausted;
+#   EX_UNAVAILABLE on a fatal error.
 handle_sync_result() {
     local log_file="$1"
     local remote_name="$2"
@@ -114,6 +141,28 @@ handle_sync_result() {
     esac
 }
 
+# Run one direction (push, pull, update or sync) with retries. push and
+# sync compress PDFs first and abort if compression fails; sync pulls
+# before it pushes and stops at the first failing half.
+#
+# Parameters:
+#   log_file: path to the active log file
+#   local_path: local directory being synced
+#   remote_name: the configured rclone remote
+#   state_file: path to state.json
+#   lock_file: path to the flock file
+#   optimized_marker: suffix marking already-compressed PDFs
+#   gs_device: Ghostscript device used for compression
+#   min_valid_size: smallest size accepted as a valid compressed file
+#   backoff_seconds: wait used when recovering from a rate limit
+#   retry_delay: seconds to wait before retrying
+#   max_retries: maximum number of attempts
+#   direction: "push", "pull", "update" or "sync"
+#   dry_run: "true" to preview without transferring, default "false"
+#   allowed_paths: remaining arguments, the paths operations may touch
+#
+# Returns: 0 on success; 1 when compression failed; EX_TEMPFAIL when
+#   retries are exhausted; EX_UNAVAILABLE on a fatal error.
 do_sync() {
     local log_file="$1"
     local local_path="$2"
@@ -216,6 +265,16 @@ do_sync() {
 # Main Entry Point
 #=============================================================================
 
+# Entry point: load settings, parse arguments, validate the environment
+# and dispatch to push/pull/sync/update/status/ratelimit. Exit codes
+# follow docs/CONTRACT.md: bare invocation is a usage error (EX_USAGE),
+# while -h/--help and -V/--version exit 0.
+#
+# Parameters:
+#   args: command-line arguments, [-v] <command> [options]
+#
+# Returns: the status of the dispatched command; usage errors and
+#   environment failures exit the process directly.
 main() {
     local log_file state_file lock_file local_path remote_name
     local optimized_marker gs_device min_valid_size backoff_seconds retry_delay max_retries
