@@ -99,8 +99,41 @@ status_output() {
     use_color() { return 0; }
     update_state "$LOG_FILE" "$STATE_FILE" "$LOCK_FILE" "sync_status" "failed"
     run status_output
-    [[ "$output" == *$'\033[1mPaths\033[0m'* ]]
+    [[ "$output" == *$'\033[36mPaths\033[0m'* ]]
     [[ "$output" == *$'\033[31mfailed\033[0m'* ]]
+}
+
+@test "status and doctor never use bold, only colors" {
+    use_color() { return 0; }
+    export MOCK_RCLONE_REMOTES="drive:"
+    run status_output
+    [[ "$output" != *$'\033[1m'* ]]
+    run run_doctor "$LOG_FILE" "$STATE_FILE" "drive:" "$LOCAL_PATH"
+    [[ "$output" != *$'\033[1m'* ]]
+}
+
+@test "doctor colors its tags and its title the same way status does" {
+    use_color() { return 0; }
+    export MOCK_RCLONE_REMOTES="drive:"
+    run run_doctor "$LOG_FILE" "$STATE_FILE" "drive:" "$LOCAL_PATH"
+    [[ "$output" == *$'\033[36mdrive_sync doctor\033[0m'* ]]
+    [[ "$output" == *$'\033[36mSettings:\033[0m'* ]]
+    [[ "$output" == *$'\033[32m[ok]\033[0m rclone'* ]]
+}
+
+@test "doctor colors a failure red and the closing line to match" {
+    use_color() { return 0; }
+    export MOCK_RCLONE_REMOTES="other:"
+    run run_doctor "$LOG_FILE" "$STATE_FILE" "drive:" "$LOCAL_PATH"
+    [[ "$output" == *$'\033[31m[FAIL]\033[0m remote drive:'* ]]
+    [[ "$output" == *$'\033[31mSome required checks failed.\033[0m'* ]]
+}
+
+@test "doctor prints no escape codes when output is not a terminal" {
+    export MOCK_RCLONE_REMOTES="drive:"
+    run run_doctor "$LOG_FILE" "$STATE_FILE" "drive:" "$LOCAL_PATH"
+    [[ "$output" != *$'\033'* ]]
+    [[ "$output" == *"[ok] rclone"* ]]
 }
 
 @test "use_color is true on a terminal and NO_COLOR turns it off" {
@@ -113,4 +146,34 @@ status_output() {
 
     NO_COLOR=1 run script -qec "bash -c '$probe'" /dev/null
     [ "$status" -ne 0 ]
+}
+
+# These run the real command under a pseudo-terminal, without overriding
+# use_color. A color that only works when use_color is stubbed (for example
+# one computed inside $(...), where stdout is a pipe) would fail here.
+
+@test "on a real terminal doctor colors every tag, not only the title" {
+    command -v script > /dev/null || skip "script(1) is not available"
+    mkdir -p "$HOME/drive"
+    export MOCK_RCLONE_REMOTES="drive:"
+    run script -qec "$REPO_ROOT/drive-sync.sh doctor" /dev/null
+    [[ "$output" == *$'\033[32m[ok]\033[0m rclone'* ]]
+    [[ "$output" == *$'\033[32mAll required checks passed.\033[0m'* ]]
+}
+
+@test "on a real terminal status colors the sync status value" {
+    command -v script > /dev/null || skip "script(1) is not available"
+    mkdir -p "$HOME/drive"
+    export MOCK_RCLONE_REMOTES="drive:"
+    run script -qec "$REPO_ROOT/drive-sync.sh status" /dev/null
+    [[ "$output" == *$'Status: \033[90midle\033[0m'* ]]
+}
+
+@test "on a real terminal NO_COLOR removes every escape code from doctor" {
+    command -v script > /dev/null || skip "script(1) is not available"
+    mkdir -p "$HOME/drive"
+    export MOCK_RCLONE_REMOTES="drive:"
+    NO_COLOR=1 run script -qec "$REPO_ROOT/drive-sync.sh doctor" /dev/null
+    [[ "$output" != *$'\033'* ]]
+    [[ "$output" == *"[ok] rclone"* ]]
 }

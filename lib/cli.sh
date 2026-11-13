@@ -88,71 +88,73 @@ run_doctor() {
     local remote_name="$3"
     local local_path="$4"
     local failed=0 tool
+    local _COLOR_ON
+    use_color && _COLOR_ON=1 || _COLOR_ON=0
 
     echo ""
-    echo "drive_sync doctor"
+    style 36 "drive_sync doctor"; echo ""
     echo ""
 
     for tool in rclone gs jq flock; do
         if command -v "$tool" &> /dev/null; then
-            echo "  [ok] $tool"
+            echo "  $(style 32 "[ok]") $tool"
         else
-            echo "  [FAIL] $tool is missing (install it, for example: sudo apt-get install $tool)"
+            echo "  $(style 31 "[FAIL]") $tool is missing (install it, for example: sudo apt-get install $tool)"
             failed=1
         fi
     done
 
     if command -v bc &> /dev/null; then
-        echo "  [ok] bc"
+        echo "  $(style 32 "[ok]") bc"
     else
-        echo "  [warn] bc is missing (optional: integer arithmetic is used instead)"
+        echo "  $(style 33 "[warn]") bc is missing (optional: integer arithmetic is used instead)"
     fi
 
     if command -v rclone &> /dev/null; then
         if ! rclone listremotes 2>/dev/null | grep -q "^${remote_name}$"; then
-            echo "  [FAIL] remote ${remote_name} is not configured (run 'rclone config')"
+            echo "  $(style 31 "[FAIL]") remote ${remote_name} is not configured (run 'rclone config')"
             failed=1
         elif ! rclone about "$remote_name" &> /dev/null; then
-            echo "  [FAIL] remote ${remote_name} is not reachable (check the network, or run 'rclone config reconnect ${remote_name}')"
+            echo "  $(style 31 "[FAIL]") remote ${remote_name} is not reachable (check the network, or run 'rclone config reconnect ${remote_name}')"
             failed=1
         else
-            echo "  [ok] remote ${remote_name} is configured and reachable"
+            echo "  $(style 32 "[ok]") remote ${remote_name} is configured and reachable"
         fi
     fi
 
     if [[ -d "$local_path" ]]; then
-        echo "  [ok] local directory $local_path"
+        echo "  $(style 32 "[ok]") local directory $local_path"
     else
-        echo "  [FAIL] local directory $local_path does not exist"
+        echo "  $(style 31 "[FAIL]") local directory $local_path does not exist"
         failed=1
     fi
 
     if [[ ! -w "$(dirname "$state_file")" ]]; then
-        echo "  [FAIL] service directory $(dirname "$state_file") is not writable"
+        echo "  $(style 31 "[FAIL]") service directory $(dirname "$state_file") is not writable"
         failed=1
     elif command -v jq &> /dev/null; then
         local version
         if version=$(jq -er '.schema_version' "$state_file" 2>/dev/null); then
-            echo "  [ok] state (schema $version)"
+            echo "  $(style 32 "[ok]") state (schema $version)"
         else
-            echo "  [FAIL] state file is not valid JSON or has no schema_version: $state_file"
+            echo "  $(style 31 "[FAIL]") state file is not valid JSON or has no schema_version: $state_file"
             failed=1
         fi
     fi
 
     echo ""
-    echo "Settings:"
+    style 36 "Settings:"; echo ""
     echo "  tracking: ${TRACKING_MODE}"
     echo "  delete limit: ${MAX_DELETE_PERCENT}%"
     echo "  archive: ${ARCHIVE_DIR}"
 
     echo ""
     if [[ $failed -ne 0 ]]; then
-        echo "Some required checks failed."
+        style 31 "Some required checks failed."; echo ""
         echo ""
         return "$EX_UNAVAILABLE"
     fi
-    echo "All required checks passed."
+    style 32 "All required checks passed."; echo ""
     echo ""
     return 0
 }
@@ -167,16 +169,26 @@ use_color() {
     [[ -t 1 && -z "${NO_COLOR:-}" ]]
 }
 
-# Print text wrapped in an ANSI SGR code, or unchanged when use_color is
-# false. No trailing newline.
+# Print text wrapped in an ANSI SGR color code, or unchanged when
+# use_color is false. No trailing newline. status and doctor share one
+# palette: 36 cyan for titles, 32 green, 31 red, 33 yellow, 90 gray. They
+# use colors only, never bold.
 #
 # Parameters:
-#   code: the SGR code, for example 1 (bold), 2 (dim), 31 (red)
+#   code: the SGR code, for example 36 (cyan) or 31 (red)
 #   text: what to print
 #
 # Returns: the text on stdout.
 style() {
-    if use_color; then
+    # Callers decide once in _COLOR_ON (see show_status and run_doctor).
+    # Asking use_color here would be wrong inside $(...), where stdout is a
+    # pipe and never a terminal.
+    local on="${_COLOR_ON:-}"
+    if [[ -z "$on" ]]; then
+        use_color && on=1 || on=0
+    fi
+
+    if [[ "$on" == 1 ]]; then
         printf '\033[%sm%s\033[0m' "$1" "$2"
     else
         printf '%s' "$2"
@@ -205,12 +217,14 @@ show_status() {
     local remote_name="$3"
     local local_path="$4"
     local optimized_marker="$5"
+    local _COLOR_ON
+    use_color && _COLOR_ON=1 || _COLOR_ON=0
 
     echo ""
-    style 1 "drive_sync v${VERSION}"; echo ""
+    style 36 "drive_sync v${VERSION}"; echo ""
     echo ""
 
-    style 1 "Paths"; echo ""
+    style 36 "Paths"; echo ""
     echo "  Local: $local_path"
     echo "  Remote: $remote_name"
 
@@ -222,12 +236,12 @@ show_status() {
         case "$sync_status" in
             success) status_code=32 ;;
             failed)  status_code=31 ;;
-            idle)    status_code=2 ;;
+            idle)    status_code=90 ;;
             *)       status_code=33 ;;
         esac
 
         echo ""
-        style 1 "Sync"; echo ""
+        style 36 "Sync"; echo ""
         echo "  Last sync: $last_sync"
         echo "  Status: $(style "$status_code" "$sync_status")"
     fi
@@ -254,7 +268,7 @@ show_status() {
         total_bytes=$(du -sb "$local_path" 2>/dev/null | cut -f1 || echo 0)
 
         echo ""
-        style 1 "Files"; echo ""
+        style 36 "Files"; echo ""
         echo "  PDFs: $total_pdfs total"
         echo "    Optimized: $optimized_pdfs"
         if [[ $pending -gt 0 ]]; then
@@ -269,13 +283,13 @@ show_status() {
     storage=$(VERBOSE=false show_storage_usage "$log_file" "$remote_name" "  ")
     if [[ -n "$storage" ]]; then
         echo ""
-        style 1 "Storage"; echo ""
+        style 36 "Storage"; echo ""
         echo "$storage"
     fi
 
     if [[ $pending -gt 0 ]]; then
         echo ""
-        style 2 "Next: drive-sync.sh push"; echo ""
+        style 90 "Next: drive-sync.sh push"; echo ""
     fi
     echo ""
 }
