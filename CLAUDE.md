@@ -15,6 +15,10 @@ Only `rclone` and `gs` are mocked (`tests/mocks/`); `jq` and `flock` run for rea
 - `tests/characterization/` — pins existing, contracted behavior (do not casually "fix" what these pin without checking `docs/CONTRACT.md` first)
 - `tests/unit/` — individual functions and edge cases
 
+`make install-user` symlink-style installs to `~/.local/bin` (sets `DRIVE_SYNC_HOME` to the checkout, so edits apply immediately); `make install` copies to `/usr/local/lib/drive-sync` and needs sudo. The version lives in `lib/config.sh` (`VERSION`).
+
+Documentation convention (`CONTRIBUTING.md`): every `.sh` file has a header comment after the shebang, and every function has a comment block above it with a description, `Parameters:` (omit if none) and `Returns:`. Follow it for new code.
+
 CI (`.github/workflows/`) runs `make test` on push/PR to main; a separate `Release` workflow tars `drive-sync.sh` + `lib/` on `v*` tags.
 
 ## Architecture
