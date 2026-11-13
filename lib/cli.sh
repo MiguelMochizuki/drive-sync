@@ -157,9 +157,39 @@ run_doctor() {
     return 0
 }
 
-# Print the status report: local/remote names, last sync and status from
-# the state file, PDF counts (total/optimized/pending) with local size,
-# and the remote's storage usage.
+# True when ANSI styling may be used: stdout is a terminal and NO_COLOR
+# (https://no-color.org) is not set.
+#
+# Parameters: none.
+#
+# Returns: 0 when styling is allowed, 1 otherwise.
+use_color() {
+    [[ -t 1 && -z "${NO_COLOR:-}" ]]
+}
+
+# Print text wrapped in an ANSI SGR code, or unchanged when use_color is
+# false. No trailing newline.
+#
+# Parameters:
+#   code: the SGR code, for example 1 (bold), 2 (dim), 31 (red)
+#   text: what to print
+#
+# Returns: the text on stdout.
+style() {
+    if use_color; then
+        printf '\033[%sm%s\033[0m' "$1" "$2"
+    else
+        printf '%s' "$2"
+    fi
+}
+
+# Print the status report as plain text in sections (Paths, Sync, Files,
+# Storage). Local and remote names, last sync and status from the state
+# file, PDF counts (total/optimized/pending) with local size, and the
+# remote's storage usage. In hash mode a PDF is optimized when state.json
+# tracks it and the file still exists; *.optimized.pdf files always count.
+# ponytail: a tracked file edited since its last push still counts as
+# optimized until the next push re-checks it; compare mtime if that matters.
 #
 # Parameters:
 #   log_file: path to the active log file
@@ -167,6 +197,8 @@ run_doctor() {
 #   remote_name: the configured rclone remote
 #   local_path: local directory being synced
 #   optimized_marker: suffix marking already-compressed PDFs
+#
+# Returns: the report on stdout. Styling follows use_color.
 show_status() {
     local log_file="$1"
     local state_file="$2"
@@ -175,50 +207,75 @@ show_status() {
     local optimized_marker="$5"
 
     echo ""
-    echo "📁 drive_sync v${VERSION}"
-    echo "─────────────────────────"
+    style 1 "drive_sync v${VERSION}"; echo ""
+    echo ""
 
-    echo "📂 Local: $local_path"
-    echo "☁️  Remote: $remote_name"
+    style 1 "Paths"; echo ""
+    echo "  Local: $local_path"
+    echo "  Remote: $remote_name"
 
     if [[ -f "$state_file" ]]; then
-        local last_sync sync_status
+        local last_sync sync_status status_code
         last_sync=$(get_state_value "$state_file" "last_sync" | sed 's/null/Never/')
         sync_status=$(get_state_value "$state_file" "sync_status" | sed 's/null/idle/')
 
-        local status_icon="🟢"
-        [[ "$sync_status" == "failed" ]] && status_icon="🔴"
-        [[ "$sync_status" == "idle" ]] && status_icon="⏸️"
-
-        echo "🔄 Last sync: $last_sync"
-        echo "$status_icon Status: $sync_status"
-    fi
-
-    if [[ -d "$local_path" ]]; then
-        local total_pdfs optimized_pdfs unoptimized_pdfs total_bytes
-        total_pdfs=$(find "$local_path" -type f -iname "*.pdf" 2>/dev/null | wc -l)
-        optimized_pdfs=$(find "$local_path" -type f -iname "*${optimized_marker}" 2>/dev/null | wc -l)
-        unoptimized_pdfs=$((total_pdfs - optimized_pdfs))
-
-        total_bytes=$(du -sb "$local_path" 2>/dev/null | cut -f1 || echo 0)
-        local total_size_human
-        total_size_human=$(format_size "$total_bytes")
+        case "$sync_status" in
+            success) status_code=32 ;;
+            failed)  status_code=31 ;;
+            idle)    status_code=2 ;;
+            *)       status_code=33 ;;
+        esac
 
         echo ""
-        echo "📄 PDFs: $total_pdfs total"
-        echo "   ✅ Optimized: $optimized_pdfs"
-        echo "   ⏳ Pending: $unoptimized_pdfs"
-        echo "   💾 Size: $total_size_human"
-
-        if [[ $unoptimized_pdfs -gt 0 ]]; then
-            echo ""
-            echo "💡 Run: drive-sync.sh push"
-        fi
+        style 1 "Sync"; echo ""
+        echo "  Last sync: $last_sync"
+        echo "  Status: $(style "$status_code" "$sync_status")"
     fi
 
-    show_storage_usage "$log_file" "$remote_name"
+    local pending=0
+    if [[ -d "$local_path" ]]; then
+        local total_pdfs marked_pdfs tracked_pdfs=0 optimized_pdfs total_bytes
+        total_pdfs=$(find "$local_path" -type f -iname "*.pdf" 2>/dev/null | wc -l)
+        marked_pdfs=$(find "$local_path" -type f -iname "*${optimized_marker}" 2>/dev/null | wc -l)
 
-    echo ""
-    echo "─────────────────────────"
+        if [[ "${TRACKING_MODE:-suffix}" == "hash" && -f "$state_file" ]]; then
+            local rel
+            while IFS=$'\t' read -r rel _; do
+                if [[ -n "$rel" && -f "${local_path%/}/$rel" ]]; then
+                    tracked_pdfs=$((tracked_pdfs + 1))
+                fi
+            done < <(list_tracked_files "$state_file")
+        fi
+
+        optimized_pdfs=$((marked_pdfs + tracked_pdfs))
+        pending=$((total_pdfs - optimized_pdfs))
+        [[ $pending -lt 0 ]] && pending=0
+
+        total_bytes=$(du -sb "$local_path" 2>/dev/null | cut -f1 || echo 0)
+
+        echo ""
+        style 1 "Files"; echo ""
+        echo "  PDFs: $total_pdfs total"
+        echo "    Optimized: $optimized_pdfs"
+        if [[ $pending -gt 0 ]]; then
+            echo "    Pending: $(style 33 "$pending")"
+        else
+            echo "    Pending: $pending"
+        fi
+        echo "  Size: $(format_size "$total_bytes")"
+    fi
+
+    local storage
+    storage=$(VERBOSE=false show_storage_usage "$log_file" "$remote_name" "  ")
+    if [[ -n "$storage" ]]; then
+        echo ""
+        style 1 "Storage"; echo ""
+        echo "$storage"
+    fi
+
+    if [[ $pending -gt 0 ]]; then
+        echo ""
+        style 2 "Next: drive-sync.sh push"; echo ""
+    fi
     echo ""
 }

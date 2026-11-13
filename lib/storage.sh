@@ -18,12 +18,14 @@
 # Parameters:
 #   log_file: path to the active log file
 #   remote_name: the configured rclone remote, for example "drive:"
+#   indent: text printed before the console line, default none
 #
 # Returns: none. Prints nothing when the quota total is 0 or rclone
 #   about fails; logs a warning in the failure case.
 show_storage_usage() {
     local log_file="$1"
     local remote_name="$2"
+    local indent="${3:-}"
 
     log_info "$log_file" "Checking Google Drive storage usage..."
 
@@ -47,7 +49,7 @@ show_storage_usage() {
                 fi
 
                 log_info "$log_file" "Storage: ${used_human} / ${total_human} (${percent}%)"
-                echo "💾 Drive: ${used_human} / ${total_human} (${percent}%)"
+                echo "${indent}Drive: ${used_human} / ${total_human} (${percent}%)"
             fi
         fi
     else

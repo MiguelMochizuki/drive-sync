@@ -150,6 +150,38 @@ drive-sync doctor       # check dependencies, remote, state and settings
 drive-sync ratelimit    # manual rate limit recovery
 ```
 
+### Status output
+
+`status` prints plain text in sections. On a terminal the headings are
+bold and the sync status is colored; set `NO_COLOR` to turn that off.
+Redirected output never contains escape codes.
+
+```
+drive_sync v2.1.0
+
+Paths
+  Local: /home/you/drive
+  Remote: drive:
+
+Sync
+  Last sync: 2026-11-13T12:19:54+00:00
+  Status: success
+
+Files
+  PDFs: 148 total
+    Optimized: 141
+    Pending: 7
+  Size: 2.86 GiB
+
+Storage
+  Drive: 4.19 GiB / 15.00 GiB (27.9%)
+
+Next: drive-sync.sh push
+```
+
+In `hash` mode, "Optimized" counts the PDFs `state.json` tracks plus any
+legacy `*.optimized.pdf` files.
+
 ### Options
 
 | Flag | Description |
