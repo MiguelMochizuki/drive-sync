@@ -37,12 +37,11 @@ are not listed here.
   of the old file. Breaking changes only in a major version with a
   migration note.
 
-## Known issue to fix first
+## Known issue (fixed in v2.2)
 
-`-f` / `--force` is parsed in `main()` but the `force` variable is never
-used, so no confirmation exists today: `push` and `update` run
-`rclone sync` and delete files without asking, and neither passes
-`--backup-dir`.
+`-f` / `--force` used to be parsed in `main()` but never read, so no
+confirmation existed: `push` and `update` ran `rclone sync` and deleted
+files without asking, and neither passed `--backup-dir`.
 
 ## Status
 
