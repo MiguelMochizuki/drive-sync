@@ -42,9 +42,10 @@ teardown() {
     [ "$status" -eq 1 ]
 }
 
-@test "recover_from_rate_limit without dry run still cleans up and records the recovery" {
+@test "recover_from_rate_limit never empties the Drive trash and records the recovery" {
     run recover_from_rate_limit "$LOG_FILE" "drive:" "$STATE_FILE" "$LOCK_FILE" 0
     [ "$status" -eq 0 ]
-    grep -q '^cleanup' "$MOCK_STATE_DIR/rclone_calls.log"
     [ "$(get_state_value "$STATE_FILE" "rate_limit_recoveries")" = "1" ]
+    run grep -q '^cleanup' "$MOCK_STATE_DIR/rclone_calls.log"
+    [ "$status" -ne 0 ]
 }

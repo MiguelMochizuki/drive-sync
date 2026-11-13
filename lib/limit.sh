@@ -55,8 +55,9 @@ is_fatal_error() {
 #   lock_file: path to the lock file
 #   backoff_seconds: how long to sleep before probing again
 #
-# When the DRY_RUN environment variable is "true" it skips the rclone
-# cleanup and cache clear and writes no state; it still waits and probes.
+# It never runs rclone cleanup, so Drive's trash stays intact. When the
+# DRY_RUN environment variable is "true" it also skips the cache clear and
+# writes no state; it still waits and probes.
 #
 # Returns: 0 and an incremented rate_limit_recoveries count on a
 #   successful probe (no count in a dry run); 1 if the probe still fails.
@@ -69,11 +70,10 @@ recover_from_rate_limit() {
 
     log_warning "$log_file" "API rate limit detected, attempting recovery..."
 
-    # A dry run only waits and probes. rclone cleanup empties the Drive trash,
-    # so it must never run in a preview.
+    # rclone cleanup is never run here: it empties the Drive trash, which is
+    # where push sends what it deletes. A dry run also skips the cache clear.
     local dry_run="${DRY_RUN:-false}"
     if [[ "$dry_run" != "true" ]]; then
-        rclone cleanup "$remote_name" 2>/dev/null || true
         rclone cache clear "$remote_name" 2>/dev/null || true
     fi
 
