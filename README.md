@@ -85,6 +85,7 @@ drive-sync/
 │   ├── limit.sh
 │   ├── logging.sh
 │   ├── plan.sh
+│   ├── quarantine.sh
 │   ├── safety.sh
 │   ├── state.sh
 │   ├── storage.sh
@@ -107,7 +108,7 @@ drive-sync/
 
 ### Key modules
 
-`drive-sync.sh` is the entry point and sources the eleven modules under
+`drive-sync.sh` is the entry point and sources the twelve modules under
 `lib/`:
 
 | Module | Responsibility |
@@ -119,6 +120,7 @@ drive-sync/
 | `limit.sh` | Rate limit detection and recovery |
 | `safety.sh` | Deletion guard: plan, percentage limit, confirmation |
 | `plan.sh` | The read-only `plan` report: compression, transfers, deletions |
+| `quarantine.sh` | Keeps replaced originals for a while, prunes them, restores them |
 | `logging.sh` | Structured logging with rotation |
 | `state.sh` | JSON state persistence with file locking |
 | `utils.sh` | Path validation and formatting helpers |
@@ -148,6 +150,7 @@ drive-sync pull         # download from Drive, never deletes locally
 drive-sync sync         # pull, then push
 drive-sync update       # mirror from Drive, deleting local files not on Drive
 drive-sync plan         # show what a run would compress, transfer and delete
+drive-sync restore PATH # put a compressed PDF's original back (restore --list shows what is kept)
 drive-sync status       # show sync status and storage usage
 drive-sync doctor       # check dependencies, remote, state and settings
 drive-sync ratelimit    # manual rate limit recovery
@@ -230,6 +233,27 @@ scripts, and nothing else on stdout.
 In a `sync` the pull runs first, so the delete count leaves out files the
 pull would restore. To push a local deletion to Drive, use `push`: `sync`
 downloads the file again.
+
+### Quarantine and restore
+
+Before compression replaces a PDF, the original is kept under
+`~/.drive-sync/originals/<path>/<UTC timestamp>` for 30 days. On the same
+disk it is a hard link, so nothing is copied, but the original's disk space
+stays in use until it ages out: expect roughly the size of what you
+compressed, for 30 days. `restore --list` shows what is kept, and
+`restore books/analysis.pdf` puts the newest original back and marks the
+file as already optimized, so the next run leaves it alone. Run `push`
+afterwards to send the original to Drive.
+
+A file that did not shrink is never kept, and if the original cannot be
+kept (for example the directory is not writable) that file is not
+compressed. Set `QUARANTINE_RETENTION_DAYS=0` in
+`~/.drive-sync/drive-sync.conf` to turn the quarantine off, and
+`QUARANTINE_DIR` to move it. It applies in `hash` mode only.
+
+The same retention prunes the timestamped folders `update` leaves under
+`~/.drive-sync/archive/`. Pruning runs at the start of a real `push`,
+`pull`, `sync` or `update`, never in a dry run, in `plan` or in `status`.
 
 ### Options
 

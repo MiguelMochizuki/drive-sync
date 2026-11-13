@@ -19,6 +19,7 @@ The name stays "drive-sync" until phase 1 works. Before the first public announc
 | Replaced originals | Every original that compression replaces, PDFs included, is moved to a local quarantine (`~/.drive-sync/originals/`) with configurable retention (for example 30 days). `drive-sync restore` undoes it. |
 | Tool dependencies | `gs` is optional. A missing `gs` disables compression with a warning. Exit 69 applies only to `rclone`, `jq` and `flock`. This changes `docs/CONTRACT.md`. |
 | Destructive operations | A real confirmation (terminal only, `-f` skips it), a recoverable place for whatever `push` or `update` deletes, and a percentage limit that aborts a plan deleting more than X% of the files. |
+| Renames | Today a rename is a delete plus a new file, because rclone runs without `--track-renames`: `push` fixes it by re-uploading, but `sync` pulls the old name back first and duplicates the file, and a rename on Drive is undone by the next `push`. v3.0 detects renames (by content hash against `state.json` or rclone's rename tracking, to be settled in its design) so `sync` neither duplicates nor reverts them. |
 | New commands | `plan` (with `--json`), `init`, `doctor`, `restore` and `schedule` (systemd timer or launchd). `status` shows the cumulative space saved. |
 | TUI | Not in phase 1. `plan` gives a text and JSON report first, and a TUI would sit on top of it if there is demand. |
 
@@ -34,11 +35,11 @@ v2.2 is released as 2.2.0 (PR #9): real confirmation, the deletion limit, backup
 
 - A Drive-side `--backup-dir` is impossible when the remote is the Drive root, because rclone refuses a backup directory inside the destination. `push` pins `--drive-use-trash` instead, and `REMOTE_BACKUP_DIR` is optional for remotes that point at a subfolder. `update` archives locally.
 - The deletion limit applies even with `-f`. Only the confirmation can be skipped. A dry run that fails aborts the sync.
-- Nothing prunes `~/.drive-sync/archive/` yet. Retention arrives with the v3.0 quarantine.
+- `~/.drive-sync/archive/` is pruned by the quarantine retention (`QUARANTINE_RETENTION_DAYS`, 30 days by default).
 
 Before v2.2, `-f` was parsed in `main()` but never read, so no confirmation existed, and `push` and `update` deleted files without asking and without a `--backup-dir`.
 
-`plan` (with `--json` and `--measure`) is done (design in `docs/superpowers/specs/2026-11-13-plan-command-design.md`). Next in v3.0: the savings report in `status`, then quarantine and `restore`, then `init` and the README rewrite.
+`plan` (with `--json` and `--measure`) is done (design in `docs/superpowers/specs/2026-11-13-plan-command-design.md`). The savings report in `status` and the quarantine with `restore` are done too (the quarantine retention also prunes the `update` archive, as promised above). Next in v3.0: rename detection, then `init` and the README rewrite.
 
 ## Phases
 

@@ -35,7 +35,7 @@ console at all. No line is duplicated across streams.
 | INFO | always | silent | stdout |
 | SUCCESS | always | silent | stdout |
 
-status, doctor, plan, --help, and --version keep writing their intentional
+status, doctor, plan, restore, --help, and --version keep writing their intentional
 output to stdout regardless of -v, since that output is the command's actual
 result, not a log line. rclone's --progress bar is only enabled with -v.
 The log file always receives every level, unaffected by -v.
@@ -50,3 +50,11 @@ plan prints its report on stdout (text, or one JSON document with
 --json) and changes nothing. With --json, -v is ignored so log lines
 cannot end up inside the document. When rclone cannot produce a plan,
 plan exits 1 and prints nothing on stdout.
+
+## restore
+
+restore prints its result on stdout: the list for --list, or a "Restored"
+line for a file. Exit 1 when nothing is quarantined for the path or the path
+is outside the synced directory (the error goes to stderr), and exit 2 for
+usage errors: no path and no --list, more than one path, or --list with a
+path.
