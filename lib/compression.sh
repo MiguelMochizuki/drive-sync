@@ -179,6 +179,20 @@ compress_pdf() {
             local reduction_human
             reduction_human=$(format_size "$reduction")
 
+            # Keep the original first: it is linked into the quarantine
+            # before the compressed file replaces it, so a failure here
+            # leaves the original where it is.
+            if [[ "$mode" == "hash" ]] && declare -F quarantine_enabled > /dev/null \
+                   && quarantine_enabled; then
+                local relpath="${validated_path#"${allowed_paths[0]%/}"/}"
+                relpath="${relpath#/}"
+                if ! quarantine_keep "$log_file" "$validated_path" "$relpath"; then
+                    log_error "$log_file" "  Could not keep the original, leaving the file untouched"
+                    rm -f "$temp_output"
+                    return 1
+                fi
+            fi
+
             if mv "$temp_output" "$optimized_file" 2>/dev/null; then
                 [[ "$optimized_file" != "$validated_path" ]] && rm -f "$validated_path" 2>/dev/null
                 log_success "$log_file" "  Optimized: ${percent}% reduction (saved ${reduction_human})"

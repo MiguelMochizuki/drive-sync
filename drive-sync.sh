@@ -26,6 +26,7 @@ source "${LIB_DIR}/logging.sh"
 source "${LIB_DIR}/state.sh"
 source "${LIB_DIR}/storage.sh"
 source "${LIB_DIR}/limit.sh"
+source "${LIB_DIR}/quarantine.sh"
 source "${LIB_DIR}/compression.sh"
 source "${LIB_DIR}/sync_ops.sh"
 source "${LIB_DIR}/safety.sh"
@@ -185,6 +186,8 @@ do_sync() {
 
     local attempt=1
     local guarded="false"
+
+    [[ "$dry_run" == "true" ]] || quarantine_prune "$log_file"
 
     while [[ $attempt -le $max_retries ]]; do
         log_info "$log_file" "Sync attempt $attempt of $max_retries"
