@@ -176,6 +176,7 @@ Files
     Optimized: 141
     Pending: 7
   Size: 2.86 GiB
+  Saved: 412.30 MiB (31.2% of the PDFs it shrank)
 
 Storage
   Drive: 4.19 GiB / 15.00 GiB (27.9%)
@@ -185,6 +186,12 @@ Next: drive-sync.sh push
 
 In `hash` mode, "Optimized" counts the PDFs `state.json` tracks plus any
 legacy `*.optimized.pdf` files.
+
+`Saved` adds up what compression freed, from the sizes `state.json`
+recorded before and after for each tracked file that still exists. Files
+renamed to `*.optimized.pdf` by older versions cannot be measured, because
+their originals are gone, so a `Not counted` line reports how many there
+are. Both lines appear only in `hash` mode.
 
 ### Plan
 

@@ -177,3 +177,55 @@ status_output() {
     [[ "$output" != *$'\033'* ]]
     [[ "$output" == *"[ok] rclone"* ]]
 }
+
+@test "Saved sums original minus size for tracked files that exist" {
+    make_pdf_fixture "$LOCAL_PATH/a.pdf" 2000
+    make_pdf_fixture "$LOCAL_PATH/b.pdf" 3000
+    record_file_state "$LOG_FILE" "$STATE_FILE" "$LOCK_FILE" "a.pdf" "h1" 4000 2000 1
+    record_file_state "$LOG_FILE" "$STATE_FILE" "$LOCK_FILE" "b.pdf" "h2" 6000 3000 1
+    run status_output
+    [[ "$output" == *"Saved: 4.88 KiB (50.0% of the PDFs it shrank)"* ]]
+}
+
+@test "a tracked entry whose file is gone does not add to Saved" {
+    make_pdf_fixture "$LOCAL_PATH/a.pdf" 2000
+    record_file_state "$LOG_FILE" "$STATE_FILE" "$LOCK_FILE" "a.pdf" "h1" 4000 2000 1
+    record_file_state "$LOG_FILE" "$STATE_FILE" "$LOCK_FILE" "gone.pdf" "h2" 900000 1000 1
+    run status_output
+    [[ "$output" == *"Saved: 1.95 KiB (50.0% of the PDFs it shrank)"* ]]
+}
+
+@test "files that did not shrink do not dilute the Saved percentage" {
+    make_pdf_fixture "$LOCAL_PATH/a.pdf" 2000
+    make_pdf_fixture "$LOCAL_PATH/same.pdf" 5000
+    record_file_state "$LOG_FILE" "$STATE_FILE" "$LOCK_FILE" "a.pdf" "h1" 4000 2000 1
+    record_file_state "$LOG_FILE" "$STATE_FILE" "$LOCK_FILE" "same.pdf" "h2" 5000 5000 1
+    run status_output
+    [[ "$output" == *"(50.0% of the PDFs it shrank)"* ]]
+}
+
+@test "Saved says nothing recorded yet without tracked entries" {
+    make_pdf_fixture "$LOCAL_PATH/a.pdf" 2000
+    run status_output
+    [[ "$output" == *"Saved: nothing recorded yet"* ]]
+}
+
+@test "Not counted names the legacy files and is absent without them" {
+    make_pdf_fixture "$LOCAL_PATH/old.optimized.pdf" 2000
+    run status_output
+    [[ "$output" == *"Not counted: 1 legacy .optimized.pdf file (savings not recorded)"* ]]
+    rm "$LOCAL_PATH/old.optimized.pdf"
+    run status_output
+    [[ "$output" != *"Not counted"* ]]
+}
+
+@test "suffix mode shows neither Saved nor Not counted" {
+    make_pdf_fixture "$LOCAL_PATH/old.optimized.pdf" 2000
+    run env TRACKING_MODE=suffix REPO_ROOT="$REPO_ROOT" LOCAL_PATH="$LOCAL_PATH" bash -c '
+        for m in config utils logging state storage cli; do source "$REPO_ROOT/lib/$m.sh"; done
+        show_status "$LOG_FILE" "$STATE_FILE" "drive:" "$LOCAL_PATH" ".optimized.pdf"'
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Files"* ]]
+    [[ "$output" != *"Saved:"* ]]
+    [[ "$output" != *"Not counted"* ]]
+}

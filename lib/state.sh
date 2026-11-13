@@ -212,6 +212,21 @@ list_tracked_files() {
         "$state_file" 2>/dev/null || true
 }
 
+# List the savings recorded for every tracked file, for status.
+#
+# Parameters:
+#   state_file: path to state.json
+#
+# Returns: 0, printing one "path<TAB>original_size<TAB>size" line per entry
+#   of the files map (nothing when the map is empty or the file is missing).
+list_tracked_savings() {
+    local state_file="$1"
+
+    jq -r '(.files // {}) | to_entries[]
+           | [.key, (.value.original_size // 0), (.value.size // 0)] | @tsv' \
+        "$state_file" 2>/dev/null || true
+}
+
 # Set one key in state.json to a new value, under the state lock.
 #
 # Parameters:

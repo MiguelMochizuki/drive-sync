@@ -281,6 +281,27 @@ show_status() {
             echo "    Pending: $pending"
         fi
         echo "  Size: $(format_size "$total_bytes")"
+
+        if [[ "${TRACKING_MODE:-suffix}" == "hash" ]]; then
+            local sv_path sv_orig sv_size saved=0 shrunk=0
+            while IFS=$'\t' read -r sv_path sv_orig sv_size; do
+                [[ -n "$sv_path" && -f "${local_path%/}/$sv_path" ]] || continue
+                if [[ "$sv_orig" -gt "$sv_size" ]]; then
+                    saved=$((saved + sv_orig - sv_size))
+                    shrunk=$((shrunk + sv_orig))
+                fi
+            done < <(list_tracked_savings "$state_file")
+
+            if [[ $shrunk -gt 0 ]]; then
+                echo "  Saved: $(format_size "$saved") ($(jq -n --argjson s "$saved" --argjson o "$shrunk" \
+                    '($s * 1000 / $o | round) / 10' | sed 's/^\([0-9]*\)$/\1.0/')% of the PDFs it shrank)"
+            else
+                echo "  Saved: nothing recorded yet"
+            fi
+            if [[ $marked_pdfs -gt 0 ]]; then
+                echo "  Not counted: $marked_pdfs legacy ${optimized_marker} file$([[ $marked_pdfs -eq 1 ]] || echo s) (savings not recorded)"
+            fi
+        fi
     fi
 
     local storage
