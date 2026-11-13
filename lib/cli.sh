@@ -25,7 +25,7 @@ USAGE:
   drive-sync.sh [COMMAND] [OPTIONS]
 
 COMMANDS:
-  push, pull, sync, update, status, ratelimit
+  push, pull, sync, update, status, doctor, ratelimit
 
 Run 'drive-sync.sh --help' for details.
 EOF
@@ -49,6 +49,7 @@ COMMANDS:
   sync      Full sync (pull then push)
   update    Mirror from Drive, deleting local files not on Drive
   status    Show sync status
+  doctor    Check dependencies, remote, state and safety settings
   ratelimit Recover from rate limiting
 
 OPTIONS:
@@ -68,6 +69,93 @@ EOF
 #=============================================================================
 # Status Display
 #=============================================================================
+
+# Check the whole environment and report every result, instead of
+# stopping at the first problem like validate_environment does.
+#
+# Parameters:
+#   log_file: path to the active log file
+#   state_file: path to state.json
+#   remote_name: the configured rclone remote
+#   local_path: local directory being synced
+#
+# Returns: 0 when every required check passes (warnings are allowed);
+#   EX_UNAVAILABLE when any required check fails. Prints the report on
+#   stdout, since the report is the command's result.
+run_doctor() {
+    local log_file="$1"
+    local state_file="$2"
+    local remote_name="$3"
+    local local_path="$4"
+    local failed=0 tool
+
+    echo ""
+    echo "🩺 drive_sync doctor"
+    echo "─────────────────────────"
+
+    for tool in rclone gs jq flock; do
+        if command -v "$tool" &> /dev/null; then
+            echo "  ✓ $tool"
+        else
+            echo "  ✗ $tool is missing (install it, for example: sudo apt-get install $tool)"
+            failed=1
+        fi
+    done
+
+    if command -v bc &> /dev/null; then
+        echo "  ✓ bc"
+    else
+        echo "  ⚠ bc is missing (optional: integer arithmetic is used instead)"
+    fi
+
+    if command -v rclone &> /dev/null; then
+        if ! rclone listremotes 2>/dev/null | grep -q "^${remote_name}$"; then
+            echo "  ✗ remote ${remote_name} is not configured (run 'rclone config')"
+            failed=1
+        elif ! rclone about "$remote_name" &> /dev/null; then
+            echo "  ✗ remote ${remote_name} is not reachable (check the network, or run 'rclone config reconnect ${remote_name}')"
+            failed=1
+        else
+            echo "  ✓ remote ${remote_name} is configured and reachable"
+        fi
+    fi
+
+    if [[ -d "$local_path" ]]; then
+        echo "  ✓ local directory $local_path"
+    else
+        echo "  ✗ local directory $local_path does not exist"
+        failed=1
+    fi
+
+    if [[ ! -w "$(dirname "$state_file")" ]]; then
+        echo "  ✗ service directory $(dirname "$state_file") is not writable"
+        failed=1
+    elif command -v jq &> /dev/null; then
+        local version
+        if version=$(jq -er '.schema_version' "$state_file" 2>/dev/null); then
+            echo "  ✓ state (schema $version)"
+        else
+            echo "  ✗ state file is not valid JSON or has no schema_version: $state_file"
+            failed=1
+        fi
+    fi
+
+    echo ""
+    echo "Settings:"
+    echo "  tracking: ${TRACKING_MODE}"
+    echo "  delete limit: ${MAX_DELETE_PERCENT}%"
+    echo "  archive: ${ARCHIVE_DIR}"
+
+    echo ""
+    if [[ $failed -ne 0 ]]; then
+        echo "Some required checks failed."
+        echo ""
+        return "$EX_UNAVAILABLE"
+    fi
+    echo "All required checks passed."
+    echo ""
+    return 0
+}
 
 # Print the status report: local/remote names, last sync and status from
 # the state file, PDF counts (total/optimized/pending) with local size,

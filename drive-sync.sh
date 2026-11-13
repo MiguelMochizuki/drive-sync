@@ -281,7 +281,7 @@ do_sync() {
 #=============================================================================
 
 # Entry point: load settings, parse arguments, validate the environment
-# and dispatch to push/pull/sync/update/status/ratelimit. Exit codes
+# and dispatch to push/pull/sync/update/status/doctor/ratelimit. Exit codes
 # follow docs/CONTRACT.md: bare invocation is a usage error (EX_USAGE),
 # while -h/--help and -V/--version exit 0.
 #
@@ -325,7 +325,8 @@ main() {
 
     init_logging "$log_file"
     init_state "$log_file" "$state_file" "$lock_file"
-    validate_environment "$log_file" "$remote_name"
+    # doctor reports every problem itself, so it must not stop at the first one.
+    [[ "$1" == "doctor" ]] || validate_environment "$log_file" "$remote_name"
 
     command="$1"
     shift
@@ -352,6 +353,9 @@ main() {
         status)
             show_status "$log_file" "$state_file" "$remote_name" \
                        "$local_path" "$optimized_marker"
+            ;;
+        doctor)
+            run_doctor "$log_file" "$state_file" "$remote_name" "$local_path"
             ;;
         ratelimit)
             recover_from_rate_limit "$log_file" "$remote_name" "$state_file" \
