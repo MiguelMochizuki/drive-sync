@@ -24,6 +24,23 @@
     exit 1
 }
 
+# Files below this size are never sent to Ghostscript: compress_pdf treats
+# them as already optimal.
+COMPRESS_MIN_BYTES=10240
+
+# Tell whether a report should list a file of this size as work to do. In
+# hash mode compress_pdf leaves files under COMPRESS_MIN_BYTES alone, so
+# they are not work. In suffix mode it renames them, so they are.
+#
+# Parameters:
+#   size: file size in bytes
+#
+# Returns: 0 when the file counts as work, 1 otherwise. Reads TRACKING_MODE.
+compress_would_process() {
+    local size="$1"
+    [[ "${TRACKING_MODE:-suffix}" != "hash" || "$size" -ge "$COMPRESS_MIN_BYTES" ]]
+}
+
 #=============================================================================
 # Single File Compression
 #=============================================================================
@@ -76,7 +93,7 @@ compress_pdf() {
         return 1
     }
 
-    if [[ $original_size -lt 10240 ]]; then
+    if [[ $original_size -lt $COMPRESS_MIN_BYTES ]]; then
         local size_human
         size_human=$(format_size "$original_size")
         log_info "$log_file" "File already optimal: $(basename "$validated_path") ($size_human)"
@@ -226,6 +243,49 @@ is_tracked_current() {
     return 0
 }
 
+# Print the PDFs a real run would process, NUL terminated so any file name
+# is safe. Skips files carrying the optimized marker and, in hash mode,
+# files already tracked as optimized (see is_tracked_current). Both the
+# batch run and the plan command read this list, so they cannot disagree.
+#
+# Parameters:
+#   log_file: path to the active log file
+#   local_path: the synced directory to search
+#   optimized_marker: suffix marking already-compressed PDFs
+#   state_file: path to state.json
+#   lock_file: path to the lock file
+#
+# Returns: 0. Honors DRY_RUN through is_tracked_current (no state writes).
+list_compress_candidates() {
+    local log_file="$1"
+    local local_path="$2"
+    local optimized_marker="$3"
+    local state_file="$4"
+    local lock_file="$5"
+
+    local mode="${TRACKING_MODE:-suffix}"
+    local -A tracked_hash=() tracked_sig=()
+    if [[ "$mode" == "hash" ]]; then
+        local t_path t_hash t_size t_mtime
+        while IFS=$'\t' read -r t_path t_hash t_size t_mtime; do
+            tracked_hash["$t_path"]="$t_hash"
+            tracked_sig["$t_path"]="${t_size}:${t_mtime}"
+        done < <(list_tracked_files "$state_file")
+    fi
+
+    local file
+    while IFS= read -r -d '' file; do
+        if [[ "$file" == *"$optimized_marker" ]]; then
+            continue
+        fi
+        if [[ "$mode" == "hash" ]] && is_tracked_current "$log_file" "$state_file" \
+               "$lock_file" "$local_path" "$file" tracked_hash tracked_sig; then
+            continue
+        fi
+        printf '%s\0' "$file"
+    done < <(find "$local_path" -type f -iname "*.pdf" -print0 2>/dev/null)
+}
+
 # Compress every PDF under a directory that is not already marked
 # optimized, and report a summary.
 #
@@ -240,8 +300,9 @@ is_tracked_current() {
 #   allowed_paths: remaining arguments, prefixes validate_path checks against
 #
 # When the DRY_RUN environment variable is "true", it only logs a
-# "Would compress" line per pending file and returns 0: no gs call, no
-# file change, no state write.
+# "Would compress" line per pending file (leaving out files under
+# COMPRESS_MIN_BYTES in hash mode, see compress_would_process) and returns
+# 0: no gs call, no file change, no state write.
 #
 # Returns: 0 if every PDF ended up optimized; 1 if one or more files
 #   failed compression, in which case those originals are preserved
@@ -272,37 +333,26 @@ compress_drive_pdfs() {
     local total_size_saved=0
 
     local mode="${TRACKING_MODE:-suffix}"
-    local -A tracked_hash=() tracked_sig=()
-    if [[ "$mode" == "hash" ]]; then
-        local t_path t_hash t_size t_mtime
-        while IFS=$'\t' read -r t_path t_hash t_size t_mtime; do
-            tracked_hash["$t_path"]="$t_hash"
-            tracked_sig["$t_path"]="${t_size}:${t_mtime}"
-        done < <(list_tracked_files "$state_file")
-    fi
-
     local -a pdf_files=()
-    while IFS= read -r -d '' file; do
-        if [[ "$file" == *"$optimized_marker" ]]; then
-            continue
-        fi
-        if [[ "$mode" == "hash" ]] && is_tracked_current "$log_file" "$state_file" \
-               "$lock_file" "$local_path" "$file" tracked_hash tracked_sig; then
-            continue
-        fi
-        pdf_files+=("$file")
-    done < <(find "$local_path" -type f -iname "*.pdf" -print0 2>/dev/null)
+    mapfile -d '' -t pdf_files < <(list_compress_candidates "$log_file" \
+        "$local_path" "$optimized_marker" "$state_file" "$lock_file")
 
     local total_files=${#pdf_files[@]}
 
     if [[ "${DRY_RUN:-false}" == "true" ]]; then
-        if [[ $total_files -eq 0 ]]; then
+        local -a would=()
+        local size
+        for file in "${pdf_files[@]}"; do
+            size=$(get_file_size "$file") || size=0
+            compress_would_process "$size" && would+=("$file")
+        done
+        if [[ ${#would[@]} -eq 0 ]]; then
             log_info "$log_file" "All PDFs are already optimized"
         else
-            for file in "${pdf_files[@]}"; do
+            for file in "${would[@]}"; do
                 log_info "$log_file" "Would compress: $file ($(format_size "$(get_file_size "$file")"))"
             done
-            log_info "$log_file" "Would compress $total_files files"
+            log_info "$log_file" "Would compress ${#would[@]} files"
         fi
         return 0
     fi
