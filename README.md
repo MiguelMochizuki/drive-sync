@@ -337,6 +337,15 @@ What is deleted stays recoverable:
 - `update` moves local files it would delete into
   `~/.drive-sync/archive/<timestamp>/`. Nothing prunes that directory yet.
 
+### One run at a time
+
+`push`, `pull`, `sync`, `update` and `restore PATH` take a lock on
+`~/.drive-sync/run.lock` and hold it until they exit. A second one started
+meanwhile (a cron job overlapping a manual run, for example) prints
+"another drive-sync run is in progress" on stderr, does nothing and exits
+`75`. Dry runs, `plan`, `status`, `doctor` and `restore --list` only read,
+so they are never blocked.
+
 ### State and migration
 
 `state.json` is schema 2: besides the sync fields it keeps a `files` map of
@@ -359,7 +368,7 @@ distinguished from fatal ones (exit 7), which are not retried.
 | `1` | General failure, or the deletion guard aborted (limit exceeded, plan unavailable, or you answered no) |
 | `2` | Usage error: unknown command, unknown flag, or no arguments |
 | `69` | Resource unavailable: fatal rclone error, a missing dependency/remote, or a failed `doctor` check |
-| `75` | Temporary failure: retries exhausted after transient or rate-limit errors |
+| `75` | Temporary failure: retries exhausted after transient or rate-limit errors, or another run is already in progress |
 
 See [`docs/CONTRACT.md`](docs/CONTRACT.md) for the full exit-code and
 console I/O contract, including stream and verbosity behavior.

@@ -375,6 +375,16 @@ main() {
         fi
     fi
 
+    # One mutating run at a time. Dry runs, plan, status and doctor only
+    # read, so they never wait for or block a real run.
+    if [[ "$dry_run" != "true" ]]; then
+        case "$command" in
+            push|pull|sync|update) acquire_run_lock "$log_file" "$(get_run_lock_file)" || exit "$EX_TEMPFAIL" ;;
+            restore) [[ "$restore_list" == "true" ]] \
+                         || acquire_run_lock "$log_file" "$(get_run_lock_file)" || exit "$EX_TEMPFAIL" ;;
+        esac
+    fi
+
     case "$command" in
         push|pull|sync|update)
             log_info "$log_file" "${command^}ing $( [[ "$command" == "push" || "$command" == "sync" ]] && echo "to" || echo "from" ) Drive"

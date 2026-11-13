@@ -11,7 +11,7 @@ reference other documentation (README.md, the man page) points to.
 | 1 | general or unspecified failure | defensive fallback, should rarely fire; also the deletion guard aborting a push or update (limit exceeded, plan unavailable, or the user declined), see lib/safety.sh; also plan when rclone cannot produce a plan |
 | 2 | usage error | unknown command, unknown flag, or no arguments given |
 | 69 (EX_UNAVAILABLE) | resource unavailable | fatal rclone error (exit 7: auth revoked or account suspended), or environment validation failure (missing dependency, remote not configured), or a required check failing in doctor |
-| 75 (EX_TEMPFAIL) | temporary failure | retries exhausted after only transient or rate limit errors (rclone exit 5 or 6) |
+| 75 (EX_TEMPFAIL) | temporary failure | retries exhausted after only transient or rate limit errors (rclone exit 5 or 6), or another push, pull, sync, update or restore already holds the run lock (nothing was done) |
 
 Internal return codes passed between functions in the same process (for
 example sync_to_drive returning 2 or 3 to handle_sync_result) are a
