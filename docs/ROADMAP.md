@@ -30,7 +30,7 @@ Exit codes and the console I/O contract stay. `state.json` and `drive-sync.conf`
 
 ## Status
 
-v2.2 is released as 2.2.0 (PR #9): real confirmation, the deletion limit, backups, hash-based state with migration, and `doctor`. It differs from the plan in a few places.
+v2.2 is released as 2.2.0 (PR #9): real confirmation, the deletion limit, backups, hash-based state with migration, and `doctor`. Version 2.2.1 (PR #12) fixed `-n`, which modified files and state before. The release differs from the plan in a few places.
 
 - A Drive-side `--backup-dir` is impossible when the remote is the Drive root, because rclone refuses a backup directory inside the destination. `push` pins `--drive-use-trash` instead, and `REMOTE_BACKUP_DIR` is optional for remotes that point at a subfolder. `update` archives locally.
 - The deletion limit applies even with `-f`. Only the confirmation can be skipped. A dry run that fails aborts the sync.
