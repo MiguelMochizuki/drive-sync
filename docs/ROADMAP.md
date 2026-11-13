@@ -1,88 +1,61 @@
 # Roadmap
 
-Decisions reached while planning the v2.2 / v3 redesign. This is the
-reference for scope and ordering; revisit it before adding features that
-are not listed here.
+Decisions from planning the v2.2 and v3 redesign. Check this file before adding a feature that is not listed here.
 
 ## Positioning
 
-- **Audience:** people with large archives (PDFs, scans, photos) who want
-  their Drive storage under control without learning `rclone`.
-- **Promise:** space savings is the headline, safety ("never loses a
-  file") is the guarantee, and easy setup ("configured in two minutes")
-  is the way in.
-- **Backend:** Google Drive is the primary and only documented path.
-- **Name:** keep "drive-sync" until phase 1 works. Decide the final name,
-  after checking for collisions on GitHub, brew and apt, before the first
-  public announcement.
+drive-sync is for people with large archives of PDFs, scans and photos who want their Google Drive storage under control without learning `rclone`. The headline is space saved. Safety (no lost files) is the guarantee behind it, and a quick setup is the way in.
+
+Google Drive is the only documented backend.
+
+The name stays "drive-sync" until phase 1 works. Before the first public announcement, check for name collisions on GitHub, brew and apt, and pick the final name then.
 
 ## Product decisions
 
 | Area | Decision |
 |---|---|
-| File types | PDF, PNG and JPEG first. Lossy compression is opt-in, never the default. Configurable lossy images and video come later, and only on demand. |
-| Optimized-file tracking | Per-file hash in `state.json`, with no renaming. The `.optimized.pdf` suffix remains as a legacy mode, migrated automatically. |
-| Originals under lossy compression | Moved to a local quarantine (`~/.drive-sync/originals/`) with configurable retention; `drive-sync restore` undoes it. PDF and other lossless types keep today's behavior. |
-| Tool dependencies | Each per-type tool (`gs`, `oxipng`, `jpegoptim`, ...) is optional: a missing tool disables that type with a warning. Exit 69 applies only to `rclone`, `jq` and `flock`. **This changes `docs/CONTRACT.md`.** |
-| Destructive operations | Real confirmation (TTY only, `-f` skips), rclone `--backup-dir` for anything `push`/`update` would delete, and a percentage limit that aborts a plan deleting more than X% of files. |
-| New commands | `plan` (with `--json`), `init`, `doctor`, `restore`, `schedule` (systemd timer / launchd). `status` shows cumulative space saved. |
-| TUI | Not in phase 1. `plan` gives the text and JSON report first; a TUI is a layer on top, only if there is demand. |
+| File types | PDF, PNG and JPEG first. Lossy compression is opt-in and never the default. Configurable lossy images and video come later, only on demand. |
+| Tracking optimized files | A content hash per file in `state.json`, with no renaming. The `.optimized.pdf` suffix stays as a legacy mode, and the state migrates automatically. |
+| Originals under lossy compression | Moved to a local quarantine (`~/.drive-sync/originals/`) with configurable retention. `drive-sync restore` undoes it. PDF and other lossless types keep the current behavior. |
+| Tool dependencies | Each per-type tool (`gs`, `oxipng`, `jpegoptim`) is optional. A missing tool disables that type with a warning. Exit 69 applies only to `rclone`, `jq` and `flock`. This changes `docs/CONTRACT.md`. |
+| Destructive operations | A real confirmation (terminal only, `-f` skips it), a recoverable place for whatever `push` or `update` deletes, and a percentage limit that aborts a plan deleting more than X% of the files. |
+| New commands | `plan` (with `--json`), `init`, `doctor`, `restore` and `schedule` (systemd timer or launchd). `status` shows the cumulative space saved. |
+| TUI | Not in phase 1. `plan` gives a text and JSON report first, and a TUI would sit on top of it if there is demand. |
 
 ## Engineering decisions
 
-- **Language:** Bash through phase 1. The `bats` characterization suite is
-  the specification a later Go port must pass.
-- **Compatibility:** exit codes and the console I/O contract stay.
-  `state.json` and `drive-sync.conf` migrate automatically with a backup
-  of the old file. Breaking changes only in a major version with a
-  migration note.
+Bash stays through phase 1. The `bats` characterization suite is the specification a later Go port has to pass.
 
-## Known issue (fixed in v2.2)
-
-`-f` / `--force` used to be parsed in `main()` but never read, so no
-confirmation existed: `push` and `update` ran `rclone sync` and deleted
-files without asking, and neither passed `--backup-dir`.
+Exit codes and the console I/O contract stay. `state.json` and `drive-sync.conf` migrate automatically, keeping a backup of the old file. Breaking changes wait for a major version and come with a migration note.
 
 ## Status
 
-**v2.2 is implemented** (branch `feat/v2.2-safe-base`): real confirmation,
-deletion limit, backups, hash-based state with migration, and `doctor`.
-Deviations from the plan above:
+v2.2 is implemented on branch `feat/v2.2-safe-base`: real confirmation, the deletion limit, backups, hash-based state with migration, and `doctor`. It differs from the plan in a few places.
 
-- A Drive-side `--backup-dir` is impossible when the remote is the Drive
-  root: rclone refuses a backup directory inside the destination. `push`
-  pins `--drive-use-trash` instead, and `REMOTE_BACKUP_DIR` is optional
-  for remotes that point at a subfolder. `update` archives locally.
-- The deletion limit applies even with `-f`; only the confirmation is
-  skippable. A failed dry run aborts rather than proceeding blind.
-- Nothing prunes `~/.drive-sync/archive/` yet; retention arrives with the
-  v3.0 quarantine.
-- The version is still 2.1.0; bumping it is part of the release.
+- A Drive-side `--backup-dir` is impossible when the remote is the Drive root, because rclone refuses a backup directory inside the destination. `push` pins `--drive-use-trash` instead, and `REMOTE_BACKUP_DIR` is optional for remotes that point at a subfolder. `update` archives locally.
+- The deletion limit applies even with `-f`. Only the confirmation can be skipped. A dry run that fails aborts the sync.
+- Nothing prunes `~/.drive-sync/archive/` yet. Retention arrives with the v3.0 quarantine.
+- The version is still 2.1.0. The bump belongs to the release.
+
+Before v2.2, `-f` was parsed in `main()` but never read, so no confirmation existed, and `push` and `update` deleted files without asking and without a `--backup-dir`.
 
 ## Phases
 
-1. **v2.2, safe base:** real confirmation, `--backup-dir`, deletion
-   limit, hash-based state with migration, `doctor`.
-2. **v3.0, the differentiator:** multi-type pipeline (PDF, PNG, JPEG),
-   `plan` with `--json`, savings report in `status`, quarantine and
-   `restore`, `init`, and a README rewrite showing real `plan` output.
-3. **v3.x, convenience:** `schedule`, opt-in lossy images and, only on
-   demand, a TUI and video.
+1. v2.2 (safe base): real confirmation, backups, deletion limit, hash-based state with migration, `doctor`.
+2. v3.0 (the differentiator): multi-type pipeline (PDF, PNG, JPEG), `plan` with `--json`, savings report in `status`, quarantine and `restore`, `init`, and a README rewrite that shows real `plan` output.
+3. v3.x (convenience): `schedule`, opt-in lossy images, and a TUI and video only if people ask for them.
 
-Safety comes first: a savings report on top of a tool that still deletes
-without asking would lose the first user's files.
+Safety goes first. A savings report on top of a tool that still deletes without asking would cost the first user their files.
 
 ## Success signal
 
-The first five people outside the author's circle who run `init` to the
-end and open an issue or a pull request.
+Five people outside the author's circle run `init` to the end and open an issue or a pull request.
 
 ## Non-goals
 
 Until at least v3.x:
 
-- Real bidirectional sync with conflict resolution (that is
-  `rclone bisync`).
+- Real bidirectional sync with conflict resolution (that is `rclone bisync`).
 - Backends other than Google Drive.
 - A `watch` daemon.
 - A web interface.
