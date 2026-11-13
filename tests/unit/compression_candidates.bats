@@ -94,6 +94,7 @@ run_batch() {
     make_pdf_fixture "$LOCAL_PATH/small.pdf" 5000
     DRY_RUN=true run run_batch
     [ "$status" -eq 0 ]
-    ! grep -q "Would compress" "$LOG_FILE"
+    run grep -q "Would compress" "$LOG_FILE"
+    [ "$status" -ne 0 ]
     grep -q "All PDFs are already optimized" "$LOG_FILE"
 }

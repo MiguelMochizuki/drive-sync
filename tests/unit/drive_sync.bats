@@ -218,6 +218,7 @@ teardown() {
     export MOCK_RCLONE_EXIT_SEQUENCE="5,0"
     run "$REPO_ROOT/drive-sync.sh" push -n
     [ "$status" -eq 0 ]
-    ! grep -q '^cleanup\|^cache' "$MOCK_STATE_DIR/rclone_calls.log"
     [ "$(jq -r '.rate_limit_recoveries' "$HOME/.drive-sync/state.json")" = "0" ]
+    run grep -q '^cleanup\|^cache' "$MOCK_STATE_DIR/rclone_calls.log"
+    [ "$status" -ne 0 ]
 }
