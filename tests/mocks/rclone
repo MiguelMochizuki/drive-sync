@@ -20,7 +20,9 @@
 #   MOCK_STATE_DIR/rclone_plan.log instead of rclone_calls.log. Prints
 #   MOCK_RCLONE_PLAN_COPIES (default 0) "Skipped copy" and
 #   MOCK_RCLONE_PLAN_DELETES (default 0) "Skipped delete" NOTICE lines on
-#   stderr, like the real rclone, and exits MOCK_RCLONE_PLAN_EXIT
+#   stderr, like the real rclone, plus one line per name in the space
+#   separated MOCK_RCLONE_PLAN_COPY_NAMES and MOCK_RCLONE_PLAN_DELETE_NAMES,
+#   and exits MOCK_RCLONE_PLAN_EXIT
 #   (default 0).
 # lsf: prints MOCK_RCLONE_LSF_COUNT (default 0) file names, one per line.
 #
@@ -40,6 +42,12 @@ if [[ "$subcommand" == "sync" || "$subcommand" == "copy" ]] \
     printf '%s\n' "$*" >> "$state_dir/rclone_plan.log"
     for ((i = 1; i <= ${MOCK_RCLONE_PLAN_COPIES:-0}; i++)); do
         printf '<5>NOTICE: copy%s.txt: Skipped copy as --dry-run is set (size 1)\n' "$i" >&2
+    done
+    for name in ${MOCK_RCLONE_PLAN_COPY_NAMES:-}; do
+        printf '<5>NOTICE: %s: Skipped copy as --dry-run is set (size 1)\n' "$name" >&2
+    done
+    for name in ${MOCK_RCLONE_PLAN_DELETE_NAMES:-}; do
+        printf '<5>NOTICE: %s: Skipped delete as --dry-run is set (size 1)\n' "$name" >&2
     done
     for ((i = 1; i <= ${MOCK_RCLONE_PLAN_DELETES:-0}; i++)); do
         printf '<5>NOTICE: file%s.txt: Skipped delete as --dry-run is set (size 1)\n' "$i" >&2

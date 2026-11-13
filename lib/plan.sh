@@ -149,6 +149,11 @@ plan_compress_json() {
 #   direction: "push", "pull" or "update"
 #   local_path: the synced directory
 #   remote_name: the configured rclone remote
+#   names_out: optional file to receive the names rclone would copy, one
+#     per line (a name with a newline in it is not supported)
+#   skip_file: optional file of names to leave out of the deletion count;
+#     the sync plan passes what its pull half would restore, since the real
+#     push then finds those files locally and does not delete them
 #
 # Returns: 0, printing {"copy_files":N,"delete":{count,total,percent,limit,
 #   would_abort}} with "delete" null for pull; 1 and a logged error, printing
@@ -158,6 +163,8 @@ plan_transfer_json() {
     local direction="$2"
     local local_path="$3"
     local remote_name="$4"
+    local names_out="${5:-}"
+    local skip_file="${6:-}"
 
     local cmd src dst
     case "$direction" in
@@ -177,13 +184,21 @@ plan_transfer_json() {
 
     local copies deletions=0 total=0 limit="${MAX_DELETE_PERCENT:-50}"
     copies=$(grep -c "Skipped copy" <<< "$out" || true)
+    if [[ -n "$names_out" ]]; then
+        sed -n 's/^<5>NOTICE: \(.*\): Skipped copy as --dry-run is set.*/\1/p' <<< "$out" > "$names_out"
+    fi
 
     if [[ "$direction" == "pull" ]]; then
         jq -n --argjson c "$copies" '{copy_files: $c, delete: null}'
         return 0
     fi
 
-    deletions=$(grep -c "Skipped delete" <<< "$out" || true)
+    if [[ -n "$skip_file" ]]; then
+        deletions=$(sed -n 's/^<5>NOTICE: \(.*\): Skipped delete as --dry-run is set.*/\1/p' <<< "$out" \
+                    | { grep -vxFf "$skip_file" || true; } | wc -l)
+    else
+        deletions=$(grep -c "Skipped delete" <<< "$out" || true)
+    fi
     total=$(count_dest_files "$log_file" "$dst") || return 1
     [[ "$total" -lt "$deletions" ]] && total="$deletions"
 
@@ -191,7 +206,150 @@ plan_transfer_json() {
           --argjson l "$limit" '
         {copy_files: $c,
          delete: {count: $d, total: $t,
-                  percent: (if $t > 0 then ($d * 100 / $t | floor) else 0 end),
+                  percent: (if $t > 0 then ($d * 1000 / $t | round) / 10 else 0 end),
                   limit: $l,
                   would_abort: ($d * 100 > $l * $t)}}'
+}
+
+# Print the text report for a plan document. Every figure is read back from
+# the JSON, so the text and --json output cannot disagree. Sections that do
+# not apply to the direction are left out. Colors follow status and doctor
+# (cyan titles, green and red verdicts) and respect NO_COLOR.
+#
+# Parameters:
+#   doc: the plan JSON document
+#
+# Returns: 0, printing the report on stdout.
+render_plan_text() {
+    local doc="$1"
+    local _COLOR_ON=0
+    use_color && _COLOR_ON=1
+
+    local direction
+    direction=$(jq -r '.direction' <<< "$doc")
+    style 36 "drive_sync plan ($direction)"; echo ""
+
+    if [[ "$(jq -r '.compress' <<< "$doc")" != "null" ]]; then
+        local count total method saved ratio
+        count=$(jq -r '.compress.candidates | length' <<< "$doc")
+        total=$(jq -r '.compress.total_bytes' <<< "$doc")
+        method=$(jq -r '.compress.estimate.method' <<< "$doc")
+        saved=$(jq -r '.compress.estimate.saved_bytes' <<< "$doc")
+        ratio=$(jq -r '(.compress.estimate.ratio // 0) * 1000 | round / 10' <<< "$doc")
+        echo ""
+        style 36 "Compress"; echo ""
+        if [[ "$count" -eq 0 ]]; then
+            echo "  Nothing to compress"
+        else
+            echo "  $count PDFs, $(format_size "$total") to process"
+            case "$method" in
+                measured) echo "  Saving: $(format_size "$saved") (${ratio}%), measured with gs" ;;
+                history)  echo "  Saving: about $(format_size "$saved") (${ratio}%), estimated from history" ;;
+                *)        echo "  Saving: no estimate yet (nothing optimized before); try --measure" ;;
+            esac
+            local line
+            while IFS= read -r line; do
+                echo "    $line"
+            done < <(jq -r '.compress.candidates | sort_by(-.size) | .[0:10][]
+                            | "\(.path) (\(.size) bytes)"' <<< "$doc")
+            [[ "$count" -gt 10 ]] && echo "    ... and $((count - 10)) more"
+        fi
+    fi
+
+    if [[ "$(jq -r '.transfers.pull // empty' <<< "$doc")" != "" ]]; then
+        echo ""
+        style 36 "Download"; echo ""
+        echo "  $(jq -r '.transfers.pull.copy_files' <<< "$doc") files would be copied"
+    fi
+    if [[ "$(jq -r '.transfers.update // empty' <<< "$doc")" != "" ]]; then
+        echo ""
+        style 36 "Download"; echo ""
+        echo "  $(jq -r '.transfers.update.copy_files' <<< "$doc") files would be copied"
+    fi
+    if [[ "$(jq -r '.transfers.push // empty' <<< "$doc")" != "" ]]; then
+        echo ""
+        style 36 "Upload"; echo ""
+        echo "  $(jq -r '.transfers.push.copy_files' <<< "$doc") files would be copied"
+    fi
+
+    local del
+    del=$(jq -c '(.transfers.push // .transfers.update // null) | .delete' <<< "$doc")
+    if [[ "$del" != "null" ]]; then
+        echo ""
+        style 36 "Delete"; echo ""
+        echo "  $(jq -r '.count' <<< "$del") of $(jq -r '.total' <<< "$del") files (limit $(jq -r '.limit' <<< "$del")%)"
+        if [[ "$(jq -r '.would_abort' <<< "$del")" == "true" ]]; then
+            echo "  The run would abort: raise MAX_DELETE_PERCENT if this is intended"
+            style 31 "  would abort"; echo ""
+        else
+            style 32 "  would continue"; echo ""
+        fi
+    fi
+}
+
+# Build the plan for a direction and print it as text or JSON. Transfers
+# are planned first so a failing rclone stops the command before the slow
+# measure pass. Compression is planned only for push and sync, the
+# directions that compress. Nothing is written anywhere.
+#
+# Parameters:
+#   log_file: path to the active log file
+#   state_file: path to state.json
+#   lock_file: path to the lock file
+#   local_path: the synced directory
+#   remote_name: the configured rclone remote
+#   optimized_marker: suffix marking already-compressed PDFs
+#   gs_device: the Ghostscript output device
+#   min_valid_size: minimum acceptable compressed size in bytes
+#   direction: "push", "pull", "sync" or "update"
+#   json: "true" to print the JSON document instead of the text report
+#   measure: "true" to measure savings with gs instead of estimating
+#
+# Returns: 0 with the report on stdout; 1 with nothing on stdout when
+#   rclone cannot produce a plan. Forces DRY_RUN on.
+show_plan() {
+    local log_file="$1"
+    local state_file="$2"
+    local lock_file="$3"
+    local local_path="$4"
+    local remote_name="$5"
+    local optimized_marker="$6"
+    local gs_device="$7"
+    local min_valid_size="$8"
+    local direction="$9"
+    local json="${10}"
+    local measure="${11}"
+
+    local DRY_RUN="true"
+    local transfers="{}" part compress="null"
+
+    # In a sync the pull runs first, so what it restores is local again by
+    # the time the push looks for deletions.
+    local restored dir
+    restored=$(mktemp)
+    for dir in $(case "$direction" in sync) echo "pull push" ;; *) echo "$direction" ;; esac); do
+        local names_out="" skip_file=""
+        [[ "$direction" == "sync" && "$dir" == "pull" ]] && names_out="$restored"
+        [[ "$direction" == "sync" && "$dir" == "push" ]] && skip_file="$restored"
+        part=$(plan_transfer_json "$log_file" "$dir" "$local_path" "$remote_name" \
+                   "$names_out" "$skip_file") || { rm -f "$restored"; return 1; }
+        transfers=$(jq -c --arg d "$dir" --argjson p "$part" '. + {($d): $p}' <<< "$transfers")
+    done
+    rm -f "$restored"
+
+    if [[ "$direction" == "push" || "$direction" == "sync" ]]; then
+        [[ "$measure" == "true" ]] && echo "Measuring PDFs with gs, this can take a while..." >&2
+        compress=$(plan_compress_json "$log_file" "$local_path" "$optimized_marker" \
+                       "$state_file" "$lock_file" "$gs_device" "$min_valid_size" "$measure")
+    fi
+
+    local doc
+    doc=$(jq -n --arg d "$direction" --argjson c "$compress" --argjson t "$transfers" \
+               '{schema_version: 1, direction: $d, compress: $c, transfers: $t}')
+
+    if [[ "$json" == "true" ]]; then
+        jq . <<< "$doc"
+    else
+        render_plan_text "$doc"
+    fi
 }

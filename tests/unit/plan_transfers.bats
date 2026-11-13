@@ -83,3 +83,23 @@ teardown() {
     [ "$status" -eq 1 ]
     [ -z "$output" ]
 }
+
+@test "names_out receives the files the dry run would copy" {
+    export MOCK_RCLONE_PLAN_COPY_NAMES="a.txt dir/b.txt"
+    plan_transfer_json "$LOG_FILE" pull "$TEST_TMP_DIR/local" "drive:" \
+        "$TEST_TMP_DIR/names" > /dev/null
+    [ "$(cat "$TEST_TMP_DIR/names")" = $'a.txt\ndir/b.txt' ]
+}
+
+@test "a skip file removes restored names from the deletion count" {
+    export MOCK_RCLONE_PLAN_DELETE_NAMES="a.txt b.txt c.txt" MOCK_RCLONE_LSF_COUNT=10
+    printf 'a.txt\nb.txt\n' > "$TEST_TMP_DIR/skip"
+    run plan_transfer_json "$LOG_FILE" push "$TEST_TMP_DIR/local" "drive:" "" "$TEST_TMP_DIR/skip"
+    [ "$(jq -r '.delete.count' <<< "$output")" = "1" ]
+}
+
+@test "percent keeps one decimal so a small share does not show as zero" {
+    export MOCK_RCLONE_PLAN_DELETES=6 MOCK_RCLONE_LSF_COUNT=706
+    run plan_transfer_json "$LOG_FILE" push "$TEST_TMP_DIR/local" "drive:"
+    [ "$(jq -r '.delete.percent' <<< "$output")" = "0.8" ]
+}
