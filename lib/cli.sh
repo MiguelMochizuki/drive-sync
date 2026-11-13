@@ -53,7 +53,7 @@ COMMANDS:
   ratelimit Recover from rate limiting
 
 OPTIONS:
-  -n, --dry-run   Preview changes
+  -n, --dry-run   Preview changes (no file is modified; -v lists PDFs to compress)
   -f, --force     Skip confirmations
   -v, --verbose   Show detailed progress
   -h, --help      Show this help

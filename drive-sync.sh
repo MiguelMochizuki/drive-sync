@@ -333,7 +333,7 @@ main() {
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            -n|--dry-run)  dry_run="true"; shift ;;
+            -n|--dry-run)  dry_run="true"; export DRY_RUN="true"; shift ;;
             -f|--force)    force="true"; export FORCE="true"; shift ;;
             -v|--verbose)  export VERBOSE="true"; shift ;;
             -V|--version)  echo "drive_sync version ${VERSION}"; exit 0 ;;

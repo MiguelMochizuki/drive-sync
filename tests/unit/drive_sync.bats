@@ -162,3 +162,37 @@ teardown() {
     [ "$status" -eq 0 ]
     [ "$(wc -l < "$MOCK_STATE_DIR/rclone_plan.log")" -eq 1 ]
 }
+
+@test "push -n does not compress a PDF or record it in state" {
+    export MOCK_RCLONE_EXIT_SEQUENCE="0" MOCK_GS_BEHAVIOR="fail"
+    mkdir -p "$HOME/drive" && make_pdf_fixture "$HOME/drive/big.pdf" 50000
+    run "$REPO_ROOT/drive-sync.sh" push -n
+    [ "$status" -eq 0 ]
+    [ "$(stat -c%s "$HOME/drive/big.pdf")" -eq 50000 ]
+    [ "$(jq -r '.files | length' "$HOME/.drive-sync/state.json")" = "0" ]
+}
+
+@test "sync -n does not compress a PDF or record it in state" {
+    export MOCK_RCLONE_EXIT_SEQUENCE="0" MOCK_GS_BEHAVIOR="fail"
+    mkdir -p "$HOME/drive" && make_pdf_fixture "$HOME/drive/big.pdf" 50000
+    run "$REPO_ROOT/drive-sync.sh" sync -n
+    [ "$status" -eq 0 ]
+    [ "$(stat -c%s "$HOME/drive/big.pdf")" -eq 50000 ]
+    [ "$(jq -r '.files | length' "$HOME/.drive-sync/state.json")" = "0" ]
+}
+
+@test "push without -n still compresses a PDF" {
+    export MOCK_RCLONE_EXIT_SEQUENCE="0" MOCK_GS_BEHAVIOR="smaller"
+    mkdir -p "$HOME/drive" && make_pdf_fixture "$HOME/drive/big.pdf" 50000
+    run "$REPO_ROOT/drive-sync.sh" push
+    [ "$status" -eq 0 ]
+    [ "$(stat -c%s "$HOME/drive/big.pdf")" -eq 25000 ]
+}
+
+@test "push -n -v prints the Would compress line on stdout" {
+    export MOCK_RCLONE_EXIT_SEQUENCE="0" MOCK_GS_BEHAVIOR="fail"
+    mkdir -p "$HOME/drive" && make_pdf_fixture "$HOME/drive/big.pdf" 50000
+    run "$REPO_ROOT/drive-sync.sh" push -n -v
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Would compress: "*"big.pdf"* ]]
+}

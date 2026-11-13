@@ -187,7 +187,7 @@ legacy `*.optimized.pdf` files.
 
 | Flag | Description |
 |---|---|
-| `-n`, `--dry-run` | Preview changes without syncing |
+| `-n`, `--dry-run` | Preview changes without modifying anything: no transfer, no compression, no state change. With `-v`, lists the PDFs it would compress |
 | `-f`, `--force` | Skip the deletion confirmation (the deletion limit still applies) |
 | `-v`, `--verbose` | Show detailed progress (INFO/SUCCESS lines) |
 | `-h`, `--help` | Show help text |
