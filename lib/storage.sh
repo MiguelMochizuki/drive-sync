@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# storage.sh — Google Drive storage quota display
+# storage.sh: Google Drive storage quota display
 #
 # Displays current storage usage from Google Drive.
 

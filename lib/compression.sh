@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 #
-# compression.sh — PDF compression with safety checks
+# compression.sh: PDF compression with safety checks
 #
 # Core philosophy: Originals are NEVER deleted unless compression succeeds.
 #
 # BEHAVIOR:
-#   1. Compression succeeds + reduces size → original deleted, file becomes .optimized.pdf
-#   2. Compression succeeds but no reduction → original renamed to .optimized.pdf
-#   3. Compression fails → original preserved, retry on next run
+#   1. Compression succeeds + reduces size: original deleted, file becomes .optimized.pdf
+#   2. Compression succeeds but no reduction: original renamed to .optimized.pdf
+#   3. Compression fails: original preserved, retry on next run
 #
-# The .optimized.pdf suffix means "this PDF is at its optimal size" —
+# The .optimized.pdf suffix means "this PDF is at its optimal size":
 # either compressed or already small enough.
 #
 # TRACKING_MODE (default "suffix" here, "hash" from config.sh):
@@ -83,10 +83,10 @@ compress_pdf() {
 
         local optimized_file="${validated_path%.pdf}${optimized_marker}"
         if mv "$validated_path" "$optimized_file" 2>/dev/null; then
-            log_success "$log_file" "  ✓ Marked as optimized (already small)"
+            log_success "$log_file" "  Marked as optimized (already small)"
             return 0
         else
-            log_error "$log_file" "  ✗ Failed to rename small file"
+            log_error "$log_file" "  Failed to rename small file"
             return 1
         fi
     fi
@@ -125,9 +125,9 @@ compress_pdf() {
         if [[ $new_size -lt $min_valid_size ]]; then
             local new_size_human
             new_size_human=$(format_size "$new_size")
-            log_error "$log_file" "  ✗ Compressed file too small ($new_size_human)"
+            log_error "$log_file" "  Compressed file too small ($new_size_human)"
             rm -f "$temp_output"
-            log_error "$log_file" "  → Keeping original file"
+            log_error "$log_file" "  Keeping original file"
             return 1
         fi
 
@@ -141,10 +141,10 @@ compress_pdf() {
 
             if mv "$temp_output" "$optimized_file" 2>/dev/null; then
                 [[ "$optimized_file" != "$validated_path" ]] && rm -f "$validated_path" 2>/dev/null
-                log_success "$log_file" "  ✓ Optimized: ${percent}% reduction (saved ${reduction_human})"
+                log_success "$log_file" "  Optimized: ${percent}% reduction (saved ${reduction_human})"
                 return 0
             else
-                log_error "$log_file" "  ✗ Failed to move compressed file"
+                log_error "$log_file" "  Failed to move compressed file"
                 rm -f "$temp_output"
                 return 1
             fi
@@ -153,23 +153,23 @@ compress_pdf() {
             local orig_human new_human
             orig_human=$(format_size "$original_size")
             new_human=$(format_size "$new_size")
-            log_info "$log_file" "  → No size reduction achieved ($new_human vs $orig_human)"
+            log_info "$log_file" "  No size reduction achieved ($new_human vs $orig_human)"
             if [[ "$mode" == "hash" ]]; then
                 log_success "$log_file" "  Left as is (already at optimal size)"
                 return 0
             fi
             if mv "$validated_path" "$optimized_file" 2>/dev/null; then
-                log_success "$log_file" "  ✓ Marked as optimized (already at optimal size)"
+                log_success "$log_file" "  Marked as optimized (already at optimal size)"
                 return 0
             else
-                log_error "$log_file" "  ✗ Failed to rename file"
+                log_error "$log_file" "  Failed to rename file"
                 return 1
             fi
         fi
     else
-        log_warning "$log_file" "  ✗ Compression failed for: $(basename "$validated_path")"
+        log_warning "$log_file" "  Compression failed for: $(basename "$validated_path")"
         rm -f "$temp_output"
-        log_info "$log_file" "  → Keeping original file intact (will retry next run)"
+        log_info "$log_file" "  Keeping original file intact (will retry next run)"
         return 1
     fi
 }
@@ -333,9 +333,9 @@ compress_drive_pdfs() {
     local duration=$((end_time - start_time))
 
     log_info "$log_file" "Optimization completed:"
-    log_info "$log_file" "  ✓ Compressed: $compressed files"
-    log_info "$log_file" "  ✓ Marked as optimal (no compression needed): $marked_optimal files"
-    log_info "$log_file" "  ✗ Failed (originals preserved): $failed files"
+    log_info "$log_file" "  Compressed: $compressed files"
+    log_info "$log_file" "  Marked as optimal (no compression needed): $marked_optimal files"
+    log_info "$log_file" "  Failed (originals preserved): $failed files"
 
     if [[ $total_size_saved -gt 0 ]]; then
         local saved_human

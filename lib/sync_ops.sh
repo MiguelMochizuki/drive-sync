@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# sync_ops.sh — Rclone synchronization operations
+# sync_ops.sh: Rclone synchronization operations
 #
 # Wrappers around rclone sync that add consistent performance and safety flags.
-# Distinguishes temporary errors (exit 5/6 → retry), fatal errors (exit 7 → abort),
-# and unknown errors (exit 1/other → retry once).
+# Distinguishes temporary errors (exit 5/6: retry), fatal errors (exit 7: abort),
+# and unknown errors (exit 1/other: retry once).
 
 [[ "${BASH_SOURCE[0]}" == "${0}" ]] && {
     echo "This script should be sourced, not executed directly" >&2
@@ -99,7 +99,7 @@ sync_to_drive() {
 # Download remote_name to local_path with rclone copy: adds and updates
 # files locally, but never deletes local files absent from the remote.
 # Push (sync_to_drive) mirrors deletions to the remote; pull never
-# mirrors deletions to local — work happens locally, then push sends it.
+# mirrors deletions to local: work happens locally, then push sends it.
 #
 # Parameters:
 #   log_file: path to the active log file

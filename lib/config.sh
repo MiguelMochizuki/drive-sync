@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 #
-# config.sh — Configuration constants and defaults
+# config.sh: Configuration constants and defaults
 #
 # All paths, performance tuning, compression profiles, and retry logic.
 # Override any variable by creating ~/.drive-sync/drive-sync.conf.
 #
 # Service data (state, logs, lock) lives in ~/.drive-sync/, not in the
-# synced directory — your ~/drive stays clean with only your files.
+# synced directory, so your ~/drive stays clean with only your files.
 
 [[ "${BASH_SOURCE[0]}" == "${0}" ]] && {
     echo "This script should be sourced, not executed directly" >&2
@@ -14,7 +14,7 @@
 }
 
 #=============================================================================
-# Version — single source of truth
+# Version: single source of truth
 #=============================================================================
 
 readonly VERSION="2.1.0"
@@ -55,10 +55,10 @@ RCLONE_DRIVE_CHUNK_SIZE="128M"
 #=============================================================================
 # PDF Compression
 #
-# ⚠️  WARNING: Overriding these mid-flight can corrupt your workflow:
-#   OPTIMIZED_MARKER — changing the suffix makes already-optimized PDFs invisible
-#   GHOSTSCRIPT_DEVICE — must be a valid Ghostscript device or compression fails
-#   MIN_VALID_COMPRESSED_SIZE — too low accepts corrupt PDFs as valid
+# WARNING: Overriding these mid-flight can corrupt your workflow:
+#   OPTIMIZED_MARKER: changing the suffix makes already-optimized PDFs invisible
+#   GHOSTSCRIPT_DEVICE: must be a valid Ghostscript device or compression fails
+#   MIN_VALID_COMPRESSED_SIZE: too low accepts corrupt PDFs as valid
 #=============================================================================
 
 OPTIMIZED_MARKER=".optimized.pdf"
@@ -109,7 +109,7 @@ readonly EX_UNAVAILABLE=69
 readonly EX_TEMPFAIL=75
 
 #=============================================================================
-# User Overrides — source ~/.drive-sync/drive-sync.conf if present
+# User Overrides: source ~/.drive-sync/drive-sync.conf if present
 #=============================================================================
 
 if [[ -f "${DRIVE_SYNC_HOME}/drive-sync.conf" ]]; then
@@ -124,7 +124,7 @@ fi
 ALLOWED_PATHS=("${DRIVE_ROOT}")
 
 #=============================================================================
-# Lock Down — all variables are now read-only
+# Lock Down: all variables are now read-only
 #=============================================================================
 
 readonly REMOTE_NAME DRIVE_ROOT LOCAL_PATH STATE_DIR LOG_DIR

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# limit.sh — Google Drive API rate limit detection and recovery
+# limit.sh: Google Drive API rate limit detection and recovery
 #
 # Handles recovery from Google Drive API rate limiting (HTTP 429).
 # Rclone exit codes: 5 = temporary/retry-able, 6 = less serious,
@@ -85,7 +85,7 @@ recover_from_rate_limit() {
         log_success "$log_file" "Rate limit recovery successful (count: $recovery_count)"
         return 0
     else
-        log_error "$log_file" "Rate limit recovery failed — connection still limited"
+        log_error "$log_file" "Rate limit recovery failed, connection still limited"
         return 1
     fi
 }

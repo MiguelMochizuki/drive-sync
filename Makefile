@@ -14,7 +14,7 @@ install:
 	echo '#!/bin/bash' | sudo tee $(BIN_DIR)/$(SCRIPT_NAME) > /dev/null
 	echo 'exec "$(LIB_DIR)/$(SCRIPT_NAME).sh" "$$@"' | sudo tee -a $(BIN_DIR)/$(SCRIPT_NAME) > /dev/null
 	sudo chmod +x $(BIN_DIR)/$(SCRIPT_NAME)
-	@echo "✅ Installed to $(BIN_DIR)/$(SCRIPT_NAME)"
+	@echo "Installed to $(BIN_DIR)/$(SCRIPT_NAME)"
 	@echo "   Sources at $(LIB_DIR)/"
 
 install-user:
@@ -23,7 +23,7 @@ install-user:
 	echo 'export DRIVE_SYNC_HOME="$(SOURCE_DIR)"' >> $(USER_BIN_DIR)/$(SCRIPT_NAME)
 	echo 'exec "$(SOURCE_DIR)/$(SCRIPT_NAME).sh" "$$@"' >> $(USER_BIN_DIR)/$(SCRIPT_NAME)
 	chmod +x $(USER_BIN_DIR)/$(SCRIPT_NAME)
-	@echo "✅ Installed to $(USER_BIN_DIR)/$(SCRIPT_NAME)"
+	@echo "Installed to $(USER_BIN_DIR)/$(SCRIPT_NAME)"
 	@echo "   Sources at $(SOURCE_DIR)/"
 	@echo ""
 	@echo "Make sure $(USER_BIN_DIR) is in your PATH:"
@@ -33,7 +33,7 @@ uninstall:
 	-sudo rm -rf $(LIB_DIR)
 	-sudo rm -f $(BIN_DIR)/$(SCRIPT_NAME)
 	-rm -f $(USER_BIN_DIR)/$(SCRIPT_NAME)
-	@echo "✅ Removed $(SCRIPT_NAME)"
+	@echo "Removed $(SCRIPT_NAME)"
 
 test:
 	@command -v bats >/dev/null 2>&1 || { \

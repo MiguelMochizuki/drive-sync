@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# drive-sync.sh — Google Drive Sync Manager v2.1.0
+# drive-sync.sh: Google Drive Sync Manager v2.1.0
 #
 # Safe, modular bidirectional sync with optional PDF compression.
 # Originals are ALWAYS preserved if compression fails.
@@ -193,7 +193,7 @@ do_sync() {
                                      "$state_file" "$lock_file" \
                                      "$gs_device" "$min_valid_size" \
                                      "${allowed_paths[@]}"; then
-                log_error "$log_file" "Compression failed — aborting sync"
+                log_error "$log_file" "Compression failed, aborting sync"
                 log_error "$log_file" "Failed files will be retried on next run"
                 return 1
             fi

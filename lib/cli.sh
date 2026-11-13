@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# cli.sh — Command-line interface
+# cli.sh: Command-line interface
 #
 # Provides help text, status display, and user-facing reset logic.
 
@@ -38,7 +38,7 @@ EOF
 # Returns: the help text on stdout.
 show_help() {
     cat << EOF
-drive_sync v${VERSION} — Simple Google Drive sync with PDF compression
+drive_sync v${VERSION}: Simple Google Drive sync with PDF compression
 
 USAGE:
   drive-sync.sh [COMMAND] [OPTIONS]

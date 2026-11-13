@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# utils.sh — Utility functions
+# utils.sh: Utility functions
 #
 # Helpers for path validation, percentage calculation, and file size detection.
 
