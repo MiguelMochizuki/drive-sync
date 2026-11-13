@@ -47,3 +47,40 @@ teardown() {
     sync_to_drive "$LOG_FILE" "$TEST_TMP_DIR/local" "drive:" "$STATE_FILE" "$LOCK_FILE" "true"
     grep -q -- "--dry-run" "$MOCK_STATE_DIR/rclone_calls.log"
 }
+
+@test "sync_to_drive pins --drive-use-trash so remote deletions stay recoverable" {
+    sync_to_drive "$LOG_FILE" "$TEST_TMP_DIR/local" "drive:" "$STATE_FILE" "$LOCK_FILE" "false"
+    grep -q -- "--drive-use-trash" "$MOCK_STATE_DIR/rclone_calls.log"
+}
+
+@test "sync_to_drive passes no --backup-dir by default" {
+    sync_to_drive "$LOG_FILE" "$TEST_TMP_DIR/local" "drive:" "$STATE_FILE" "$LOCK_FILE" "false"
+    ! grep -q -- "--backup-dir" "$MOCK_STATE_DIR/rclone_calls.log"
+}
+
+@test "sync_to_drive passes a timestamped --backup-dir when REMOTE_BACKUP_DIR is set" {
+    run bash -c '
+        export HOME="'"$HOME"'" PATH="'"$PATH"'" MOCK_STATE_DIR="'"$MOCK_STATE_DIR"'"
+        export REMOTE_BACKUP_DIR="drive-archive:old"
+        source "'"$REPO_ROOT"'/lib/config.sh"
+        source "'"$REPO_ROOT"'/lib/utils.sh"
+        source "'"$REPO_ROOT"'/lib/logging.sh"
+        source "'"$REPO_ROOT"'/lib/state.sh"
+        source "'"$REPO_ROOT"'/lib/limit.sh"
+        source "'"$REPO_ROOT"'/lib/sync_ops.sh"
+        init_state "$LOG_FILE" "$STATE_FILE" "$LOCK_FILE"
+        sync_to_drive "$LOG_FILE" /tmp "drive:" "$STATE_FILE" "$LOCK_FILE" false
+    '
+    [ "$status" -eq 0 ]
+    grep -Eq -- "--backup-dir drive-archive:old/[0-9]{8}T[0-9]{6}" "$MOCK_STATE_DIR/rclone_calls.log"
+}
+
+@test "update_from_drive archives local files it would delete under ARCHIVE_DIR" {
+    update_from_drive "$LOG_FILE" "$TEST_TMP_DIR/local" "drive:" "false"
+    grep -Eq -- "--backup-dir ${ARCHIVE_DIR}/[0-9]{8}T[0-9]{6}" "$MOCK_STATE_DIR/rclone_calls.log"
+}
+
+@test "sync_from_drive never passes --backup-dir since copy deletes nothing" {
+    sync_from_drive "$LOG_FILE" "$TEST_TMP_DIR/local" "drive:" "false"
+    ! grep -q -- "--backup-dir" "$MOCK_STATE_DIR/rclone_calls.log"
+}

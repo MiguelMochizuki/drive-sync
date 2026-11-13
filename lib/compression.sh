@@ -1,16 +1,23 @@
 #!/usr/bin/env bash
 #
-# compression.sh — PDF compression with safety checks
+# compression.sh: PDF compression with safety checks
 #
 # Core philosophy: Originals are NEVER deleted unless compression succeeds.
 #
 # BEHAVIOR:
-#   1. Compression succeeds + reduces size → original deleted, file becomes .optimized.pdf
-#   2. Compression succeeds but no reduction → original renamed to .optimized.pdf
-#   3. Compression fails → original preserved, retry on next run
+#   1. Compression succeeds + reduces size: original deleted, file becomes .optimized.pdf
+#   2. Compression succeeds but no reduction: original renamed to .optimized.pdf
+#   3. Compression fails: original preserved, retry on next run
 #
-# The .optimized.pdf suffix means "this PDF is at its optimal size" —
+# The .optimized.pdf suffix means "this PDF is at its optimal size":
 # either compressed or already small enough.
+#
+# TRACKING_MODE (default "suffix" here, "hash" from config.sh):
+#   suffix: the behavior above; the file is renamed to *.optimized.pdf.
+#   hash:   the file keeps its name. A compressed file replaces the original
+#           in place (only when smaller and valid), and state.json remembers
+#           the hash of content that is already optimized. Existing
+#           *.optimized.pdf files are still recognized and left alone.
 
 [[ "${BASH_SOURCE[0]}" == "${0}" ]] && {
     echo "This script should be sourced, not executed directly" >&2
@@ -47,6 +54,7 @@ compress_pdf() {
     shift 5
     local -a allowed_paths=("$@")
     local validated_path
+    local mode="${TRACKING_MODE:-suffix}"
 
     if ! validated_path=$(validate_path "$input_file" "${allowed_paths[@]}"); then
         log_error "$log_file" "Invalid path for compression: $input_file"
@@ -68,12 +76,17 @@ compress_pdf() {
         size_human=$(format_size "$original_size")
         log_info "$log_file" "File already optimal: $(basename "$validated_path") ($size_human)"
 
+        if [[ "$mode" == "hash" ]]; then
+            log_success "$log_file" "  Already small, left as is"
+            return 0
+        fi
+
         local optimized_file="${validated_path%.pdf}${optimized_marker}"
         if mv "$validated_path" "$optimized_file" 2>/dev/null; then
-            log_success "$log_file" "  ✓ Marked as optimized (already small)"
+            log_success "$log_file" "  Marked as optimized (already small)"
             return 0
         else
-            log_error "$log_file" "  ✗ Failed to rename small file"
+            log_error "$log_file" "  Failed to rename small file"
             return 1
         fi
     fi
@@ -83,6 +96,7 @@ compress_pdf() {
     log_info "$log_file" "Compressing: $(basename "$validated_path") ($size_human)"
 
     local optimized_file="${validated_path%.pdf}${optimized_marker}"
+    [[ "$mode" == "hash" ]] && optimized_file="$validated_path"
     local temp_output="${optimized_file}.tmp.$$.pdf"
 
     if gs -sDEVICE="$gs_device" \
@@ -111,9 +125,9 @@ compress_pdf() {
         if [[ $new_size -lt $min_valid_size ]]; then
             local new_size_human
             new_size_human=$(format_size "$new_size")
-            log_error "$log_file" "  ✗ Compressed file too small ($new_size_human)"
+            log_error "$log_file" "  Compressed file too small ($new_size_human)"
             rm -f "$temp_output"
-            log_error "$log_file" "  → Keeping original file"
+            log_error "$log_file" "  Keeping original file"
             return 1
         fi
 
@@ -126,11 +140,11 @@ compress_pdf() {
             reduction_human=$(format_size "$reduction")
 
             if mv "$temp_output" "$optimized_file" 2>/dev/null; then
-                rm -f "$validated_path" 2>/dev/null || true
-                log_success "$log_file" "  ✓ Optimized: ${percent}% reduction (saved ${reduction_human})"
+                [[ "$optimized_file" != "$validated_path" ]] && rm -f "$validated_path" 2>/dev/null
+                log_success "$log_file" "  Optimized: ${percent}% reduction (saved ${reduction_human})"
                 return 0
             else
-                log_error "$log_file" "  ✗ Failed to move compressed file"
+                log_error "$log_file" "  Failed to move compressed file"
                 rm -f "$temp_output"
                 return 1
             fi
@@ -139,19 +153,23 @@ compress_pdf() {
             local orig_human new_human
             orig_human=$(format_size "$original_size")
             new_human=$(format_size "$new_size")
-            log_info "$log_file" "  → No size reduction achieved ($new_human vs $orig_human)"
+            log_info "$log_file" "  No size reduction achieved ($new_human vs $orig_human)"
+            if [[ "$mode" == "hash" ]]; then
+                log_success "$log_file" "  Left as is (already at optimal size)"
+                return 0
+            fi
             if mv "$validated_path" "$optimized_file" 2>/dev/null; then
-                log_success "$log_file" "  ✓ Marked as optimized (already at optimal size)"
+                log_success "$log_file" "  Marked as optimized (already at optimal size)"
                 return 0
             else
-                log_error "$log_file" "  ✗ Failed to rename file"
+                log_error "$log_file" "  Failed to rename file"
                 return 1
             fi
         fi
     else
-        log_warning "$log_file" "  ✗ Compression failed for: $(basename "$validated_path")"
+        log_warning "$log_file" "  Compression failed for: $(basename "$validated_path")"
         rm -f "$temp_output"
-        log_info "$log_file" "  → Keeping original file intact (will retry next run)"
+        log_info "$log_file" "  Keeping original file intact (will retry next run)"
         return 1
     fi
 }
@@ -159,6 +177,47 @@ compress_pdf() {
 #=============================================================================
 # Batch Compression
 #=============================================================================
+
+# Decide whether a file's current content is already tracked as optimized
+# (hash mode). Compares size and mtime first, so unchanged files are never
+# re-read; when those differ it compares the SHA-256, and a match (for
+# example after a touch or a copy) refreshes the recorded mtime.
+#
+# Parameters:
+#   log_file: path to the active log file
+#   state_file: path to state.json
+#   lock_file: path to the lock file
+#   local_path: the synced directory the recorded paths are relative to
+#   file: the PDF to check
+#   tracked_hash: name of an associative array, relative path to hash
+#   tracked_sig: name of an associative array, relative path to "size:mtime"
+#
+# Returns: 0 if the content is already optimized; 1 if it must be processed.
+is_tracked_current() {
+    local log_file="$1"
+    local state_file="$2"
+    local lock_file="$3"
+    local local_path="$4"
+    local file="$5"
+    local -n _hash_map="$6"
+    local -n _sig_map="$7"
+
+    local rel="${file#"${local_path%/}"/}"
+    [[ -n "${_hash_map[$rel]:-}" ]] || return 1
+
+    local size mtime
+    size=$(get_file_size "$file") || return 1
+    mtime=$(get_file_mtime "$file") || return 1
+    [[ "${_sig_map[$rel]}" == "${size}:${mtime}" ]] && return 0
+
+    local hash
+    hash=$(get_file_hash "$file") || return 1
+    [[ "$hash" == "${_hash_map[$rel]}" ]] || return 1
+
+    record_file_state "$log_file" "$state_file" "$lock_file" "$rel" \
+        "$hash" "$size" "$size" "$mtime" || true
+    return 0
+}
 
 # Compress every PDF under a directory that is not already marked
 # optimized, and report a summary.
@@ -201,9 +260,23 @@ compress_drive_pdfs() {
     local failed=0
     local total_size_saved=0
 
+    local mode="${TRACKING_MODE:-suffix}"
+    local -A tracked_hash=() tracked_sig=()
+    if [[ "$mode" == "hash" ]]; then
+        local t_path t_hash t_size t_mtime
+        while IFS=$'\t' read -r t_path t_hash t_size t_mtime; do
+            tracked_hash["$t_path"]="$t_hash"
+            tracked_sig["$t_path"]="${t_size}:${t_mtime}"
+        done < <(list_tracked_files "$state_file")
+    fi
+
     local -a pdf_files=()
     while IFS= read -r -d '' file; do
         if [[ "$file" == *"$optimized_marker" ]]; then
+            continue
+        fi
+        if [[ "$mode" == "hash" ]] && is_tracked_current "$log_file" "$state_file" \
+               "$lock_file" "$local_path" "$file" tracked_hash tracked_sig; then
             continue
         fi
         pdf_files+=("$file")
@@ -226,7 +299,19 @@ compress_drive_pdfs() {
         if compress_pdf "$log_file" "$optimized_marker" "$gs_device" \
                         "$min_valid_size" "$file" "${allowed_paths[@]}"; then
             local optimized_file="${file%.pdf}${optimized_marker}"
-            if [[ -f "$optimized_file" ]]; then
+            if [[ "$mode" == "hash" ]]; then
+                local new_size
+                new_size=$(get_file_size "$file" 2>/dev/null) || new_size=0
+                record_file_state "$log_file" "$state_file" "$lock_file" \
+                    "${file#"${local_path%/}"/}" "$(get_file_hash "$file")" \
+                    "$orig_size" "$new_size" "$(get_file_mtime "$file")" || true
+                if [[ $new_size -lt $orig_size ]]; then
+                    ((compressed++)) || true
+                    total_size_saved=$((total_size_saved + orig_size - new_size))
+                else
+                    ((marked_optimal++)) || true
+                fi
+            elif [[ -f "$optimized_file" ]]; then
                 if [[ ! -f "$file" ]]; then
                     ((compressed++)) || true
                     local new_size
@@ -248,9 +333,9 @@ compress_drive_pdfs() {
     local duration=$((end_time - start_time))
 
     log_info "$log_file" "Optimization completed:"
-    log_info "$log_file" "  ✓ Compressed: $compressed files"
-    log_info "$log_file" "  ✓ Marked as optimal (no compression needed): $marked_optimal files"
-    log_info "$log_file" "  ✗ Failed (originals preserved): $failed files"
+    log_info "$log_file" "  Compressed: $compressed files"
+    log_info "$log_file" "  Marked as optimal (no compression needed): $marked_optimal files"
+    log_info "$log_file" "  Failed (originals preserved): $failed files"
 
     if [[ $total_size_saved -gt 0 ]]; then
         local saved_human

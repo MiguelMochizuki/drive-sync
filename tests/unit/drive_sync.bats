@@ -112,3 +112,53 @@ teardown() {
     [ "$status" -eq 69 ]
     [ "$sync_calls" -eq 1 ]
 }
+
+@test "push aborts with exit 1 before syncing when deletions exceed the limit" {
+    export MOCK_RCLONE_PLAN_DELETES=9 MOCK_RCLONE_LSF_COUNT=10 MOCK_RCLONE_EXIT_SEQUENCE="0"
+    run --separate-stderr "$REPO_ROOT/drive-sync.sh" push
+    [ "$status" -eq 1 ]
+    [[ "$stderr" == *"9 of 10"* ]]
+    [ ! -f "$MOCK_STATE_DIR/rclone_calls.log" ] || ! grep -q '^sync ' "$MOCK_STATE_DIR/rclone_calls.log"
+}
+
+@test "push -f still aborts when deletions exceed the limit" {
+    export MOCK_RCLONE_PLAN_DELETES=9 MOCK_RCLONE_LSF_COUNT=10 MOCK_RCLONE_EXIT_SEQUENCE="0"
+    run "$REPO_ROOT/drive-sync.sh" push -f
+    [ "$status" -eq 1 ]
+}
+
+@test "push proceeds when deletions are within the limit" {
+    export MOCK_RCLONE_PLAN_DELETES=2 MOCK_RCLONE_LSF_COUNT=10 MOCK_RCLONE_EXIT_SEQUENCE="0"
+    run "$REPO_ROOT/drive-sync.sh" push
+    [ "$status" -eq 0 ]
+    grep -q '^sync ' "$MOCK_STATE_DIR/rclone_calls.log"
+}
+
+@test "update aborts with exit 1 when the mirror would delete too much locally" {
+    export MOCK_RCLONE_PLAN_DELETES=9 MOCK_RCLONE_EXIT_SEQUENCE="0"
+    mkdir -p "$HOME/drive" && for i in 1 2 3 4 5 6 7 8 9 10; do touch "$HOME/drive/f$i"; done
+    run "$REPO_ROOT/drive-sync.sh" update
+    [ "$status" -eq 1 ]
+    ! grep -q '^sync ' "$MOCK_STATE_DIR/rclone_calls.log" 2>/dev/null
+}
+
+@test "push --dry-run does not compute a deletion plan" {
+    export MOCK_RCLONE_PLAN_DELETES=9 MOCK_RCLONE_LSF_COUNT=10 MOCK_RCLONE_EXIT_SEQUENCE="0"
+    run "$REPO_ROOT/drive-sync.sh" push -n
+    [ "$status" -eq 0 ]
+    [ ! -f "$MOCK_STATE_DIR/rclone_plan.log" ]
+}
+
+@test "pull never computes a deletion plan" {
+    export MOCK_RCLONE_PLAN_DELETES=9 MOCK_RCLONE_LSF_COUNT=10 MOCK_RCLONE_EXIT_SEQUENCE="0"
+    run "$REPO_ROOT/drive-sync.sh" pull
+    [ "$status" -eq 0 ]
+    [ ! -f "$MOCK_STATE_DIR/rclone_plan.log" ]
+}
+
+@test "sync plans deletions only for its push half" {
+    export MOCK_RCLONE_PLAN_DELETES=1 MOCK_RCLONE_LSF_COUNT=10 MOCK_RCLONE_EXIT_SEQUENCE="0"
+    run "$REPO_ROOT/drive-sync.sh" sync
+    [ "$status" -eq 0 ]
+    [ "$(wc -l < "$MOCK_STATE_DIR/rclone_plan.log")" -eq 1 ]
+}

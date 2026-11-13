@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 #
-# config.sh — Configuration constants and defaults
+# config.sh: Configuration constants and defaults
 #
 # All paths, performance tuning, compression profiles, and retry logic.
 # Override any variable by creating ~/.drive-sync/drive-sync.conf.
 #
 # Service data (state, logs, lock) lives in ~/.drive-sync/, not in the
-# synced directory — your ~/drive stays clean with only your files.
+# synced directory, so your ~/drive stays clean with only your files.
 
 [[ "${BASH_SOURCE[0]}" == "${0}" ]] && {
     echo "This script should be sourced, not executed directly" >&2
@@ -14,7 +14,7 @@
 }
 
 #=============================================================================
-# Version — single source of truth
+# Version: single source of truth
 #=============================================================================
 
 readonly VERSION="2.1.0"
@@ -55,10 +55,10 @@ RCLONE_DRIVE_CHUNK_SIZE="128M"
 #=============================================================================
 # PDF Compression
 #
-# ⚠️  WARNING: Overriding these mid-flight can corrupt your workflow:
-#   OPTIMIZED_MARKER — changing the suffix makes already-optimized PDFs invisible
-#   GHOSTSCRIPT_DEVICE — must be a valid Ghostscript device or compression fails
-#   MIN_VALID_COMPRESSED_SIZE — too low accepts corrupt PDFs as valid
+# WARNING: Overriding these mid-flight can corrupt your workflow:
+#   OPTIMIZED_MARKER: changing the suffix makes already-optimized PDFs invisible
+#   GHOSTSCRIPT_DEVICE: must be a valid Ghostscript device or compression fails
+#   MIN_VALID_COMPRESSED_SIZE: too low accepts corrupt PDFs as valid
 #=============================================================================
 
 OPTIMIZED_MARKER=".optimized.pdf"
@@ -74,6 +74,31 @@ MAX_RETRIES=3
 RETRY_DELAY=60
 
 #=============================================================================
+# Safety
+#
+# MAX_DELETE_PERCENT: a push or update that would delete more than this
+#   percentage of the destination's files aborts, even with -f. Set it to
+#   100 to disable the limit.
+# ARCHIVE_DIR: where `update` moves local files it would delete, in a
+#   timestamped subdirectory (rclone --backup-dir).
+# REMOTE_BACKUP_DIR: optional rclone --backup-dir for `push`. It must sit
+#   OUTSIDE the destination (rclone refuses overlapping paths), so it only
+#   works when REMOTE_NAME points at a subfolder, for example
+#   REMOTE_NAME="drive:Sync" and REMOTE_BACKUP_DIR="drive:Sync-archive".
+#   Empty by default: push relies on Google Drive's trash (--drive-use-trash).
+#=============================================================================
+
+MAX_DELETE_PERCENT="${MAX_DELETE_PERCENT:-50}"
+ARCHIVE_DIR="${ARCHIVE_DIR:-${DRIVE_SYNC_HOME}/archive}"
+REMOTE_BACKUP_DIR="${REMOTE_BACKUP_DIR:-}"
+
+# TRACKING_MODE: how compression remembers what is already optimized.
+#   hash:   files keep their names; state.json tracks content hashes.
+#   suffix: legacy; files are renamed to *.optimized.pdf.
+# Existing *.optimized.pdf files are recognized in both modes.
+TRACKING_MODE="${TRACKING_MODE:-hash}"
+
+#=============================================================================
 # Exit Codes (see docs/CONTRACT.md)
 #=============================================================================
 
@@ -84,7 +109,7 @@ readonly EX_UNAVAILABLE=69
 readonly EX_TEMPFAIL=75
 
 #=============================================================================
-# User Overrides — source ~/.drive-sync/drive-sync.conf if present
+# User Overrides: source ~/.drive-sync/drive-sync.conf if present
 #=============================================================================
 
 if [[ -f "${DRIVE_SYNC_HOME}/drive-sync.conf" ]]; then
@@ -99,7 +124,7 @@ fi
 ALLOWED_PATHS=("${DRIVE_ROOT}")
 
 #=============================================================================
-# Lock Down — all variables are now read-only
+# Lock Down: all variables are now read-only
 #=============================================================================
 
 readonly REMOTE_NAME DRIVE_ROOT LOCAL_PATH STATE_DIR LOG_DIR
@@ -110,6 +135,7 @@ readonly RCLONE_DRIVE_CHUNK_SIZE
 readonly OPTIMIZED_MARKER GHOSTSCRIPT_DEVICE MIN_VALID_COMPRESSED_SIZE
 readonly RATE_LIMIT_BACKOFF_SECONDS MAX_RETRIES RETRY_DELAY
 readonly ALLOWED_PATHS
+readonly MAX_DELETE_PERCENT ARCHIVE_DIR REMOTE_BACKUP_DIR TRACKING_MODE
 
 #=============================================================================
 # Getters

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# utils.sh — Utility functions
+# utils.sh: Utility functions
 #
 # Helpers for path validation, percentage calculation, and file size detection.
 
@@ -174,6 +174,43 @@ get_file_size() {
     else
         echo "0"; return 1
     fi
+}
+
+# Print a file's modification time as epoch seconds.
+#
+# Parameters:
+#   file: path to the file
+#
+# Returns: the mtime on stdout and 0; "0" and 1 if it cannot be read.
+get_file_mtime() {
+    local file="$1"
+    local mtime
+
+    if mtime=$(stat -c%Y "$file" 2>/dev/null); then
+        echo "$mtime"; return 0
+    elif mtime=$(stat -f%m "$file" 2>/dev/null); then
+        echo "$mtime"; return 0
+    else
+        echo "0"; return 1
+    fi
+}
+
+# Print a file's SHA-256 digest.
+#
+# Parameters:
+#   file: path to the file
+#
+# Returns: the hex digest on stdout and 0; nothing and 1 if unreadable.
+get_file_hash() {
+    local file="$1"
+    local out
+
+    if command -v sha256sum &> /dev/null; then
+        out=$(sha256sum "$file" 2>/dev/null) || return 1
+    else
+        out=$(shasum -a 256 "$file" 2>/dev/null) || return 1
+    fi
+    echo "${out%% *}"
 }
 
 #=============================================================================

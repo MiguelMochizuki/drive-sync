@@ -14,7 +14,16 @@
 # listremotes: prints MOCK_RCLONE_REMOTES, default "drive:".
 # cleanup, cache: always exit 0.
 #
-# Every invocation appends its full argv to MOCK_STATE_DIR/rclone_calls.log.
+# plan call ("sync ... --dry-run --log-level ..."): used by
+#   lib/safety.sh to count deletions. Does not consume the exit sequence and
+#   is logged to MOCK_STATE_DIR/rclone_plan.log instead of rclone_calls.log.
+#   Prints MOCK_RCLONE_PLAN_DELETES (default 0) "Skipped delete" NOTICE
+#   lines on stderr, like the real rclone, and exits MOCK_RCLONE_PLAN_EXIT
+#   (default 0).
+# lsf: prints MOCK_RCLONE_LSF_COUNT (default 0) file names, one per line.
+#
+# Every other invocation appends its full argv to
+# MOCK_STATE_DIR/rclone_calls.log.
 
 set -euo pipefail
 
@@ -22,9 +31,17 @@ state_dir="${MOCK_STATE_DIR:?MOCK_STATE_DIR not set}"
 calls_log="$state_dir/rclone_calls.log"
 count_file="$state_dir/rclone_call_count"
 
-printf '%s\n' "$*" >> "$calls_log"
-
 subcommand="${1:-}"
+
+if [[ "$subcommand" == "sync" && "$*" == *"--dry-run"* && "$*" == *"--log-level"* ]]; then
+    printf '%s\n' "$*" >> "$state_dir/rclone_plan.log"
+    for ((i = 1; i <= ${MOCK_RCLONE_PLAN_DELETES:-0}; i++)); do
+        printf '<5>NOTICE: file%s.txt: Skipped delete as --dry-run is set (size 1)\n' "$i" >&2
+    done
+    exit "${MOCK_RCLONE_PLAN_EXIT:-0}"
+fi
+
+printf '%s\n' "$*" >> "$calls_log"
 
 case "$subcommand" in
     sync|copy)
@@ -54,6 +71,12 @@ case "$subcommand" in
                 printf '%s\n' '{"used":0,"total":0}'
             fi
         fi
+        exit 0
+        ;;
+    lsf)
+        for ((i = 1; i <= ${MOCK_RCLONE_LSF_COUNT:-0}; i++)); do
+            printf 'file%s.txt\n' "$i"
+        done
         exit 0
         ;;
     listremotes)

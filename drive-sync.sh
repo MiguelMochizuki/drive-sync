@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# drive-sync.sh — Google Drive Sync Manager v2.1.0
+# drive-sync.sh: Google Drive Sync Manager v2.1.0
 #
 # Safe, modular bidirectional sync with optional PDF compression.
 # Originals are ALWAYS preserved if compression fails.
@@ -28,6 +28,7 @@ source "${LIB_DIR}/storage.sh"
 source "${LIB_DIR}/limit.sh"
 source "${LIB_DIR}/compression.sh"
 source "${LIB_DIR}/sync_ops.sh"
+source "${LIB_DIR}/safety.sh"
 source "${LIB_DIR}/cli.sh"
 
 #=============================================================================
@@ -161,8 +162,9 @@ handle_sync_result() {
 #   dry_run: "true" to preview without transferring, default "false"
 #   allowed_paths: remaining arguments, the paths operations may touch
 #
-# Returns: 0 on success; 1 when compression failed; EX_TEMPFAIL when
-#   retries are exhausted; EX_UNAVAILABLE on a fatal error.
+# Returns: 0 on success; 1 when compression failed or the deletion guard
+#   aborted (see lib/safety.sh); EX_TEMPFAIL when retries are exhausted;
+#   EX_UNAVAILABLE on a fatal error. Reads the FORCE environment variable.
 do_sync() {
     local log_file="$1"
     local local_path="$2"
@@ -181,6 +183,7 @@ do_sync() {
     local -a allowed_paths=("$@")
 
     local attempt=1
+    local guarded="false"
 
     while [[ $attempt -le $max_retries ]]; do
         log_info "$log_file" "Sync attempt $attempt of $max_retries"
@@ -190,7 +193,7 @@ do_sync() {
                                      "$state_file" "$lock_file" \
                                      "$gs_device" "$min_valid_size" \
                                      "${allowed_paths[@]}"; then
-                log_error "$log_file" "Compression failed — aborting sync"
+                log_error "$log_file" "Compression failed, aborting sync"
                 log_error "$log_file" "Failed files will be retried on next run"
                 return 1
             fi
@@ -199,6 +202,10 @@ do_sync() {
         local sync_result=0
         case "$direction" in
             push)
+                if [[ "$guarded" != "true" ]]; then
+                    guard_deletions "$log_file" "$local_path" "$remote_name" "$dry_run" || return 1
+                    guarded="true"
+                fi
                 if sync_to_drive "$log_file" "$local_path" "$remote_name" \
                                  "$state_file" "$lock_file" "$dry_run"; then
                     sync_result=0
@@ -214,6 +221,10 @@ do_sync() {
                 fi
                 ;;
             update)
+                if [[ "$guarded" != "true" ]]; then
+                    guard_deletions "$log_file" "$remote_name" "$local_path" "$dry_run" || return 1
+                    guarded="true"
+                fi
                 if update_from_drive "$log_file" "$local_path" "$remote_name" "$dry_run"; then
                     sync_result=0
                 else
@@ -227,6 +238,10 @@ do_sync() {
                     local pull_result=$?
                 fi
                 if [[ $pull_result -eq 0 ]]; then
+                    if [[ "$guarded" != "true" ]]; then
+                        guard_deletions "$log_file" "$local_path" "$remote_name" "$dry_run" || return 1
+                        guarded="true"
+                    fi
                     if sync_to_drive "$log_file" "$local_path" "$remote_name" \
                                      "$state_file" "$lock_file" "$dry_run"; then
                         sync_result=0
@@ -266,7 +281,7 @@ do_sync() {
 #=============================================================================
 
 # Entry point: load settings, parse arguments, validate the environment
-# and dispatch to push/pull/sync/update/status/ratelimit. Exit codes
+# and dispatch to push/pull/sync/update/status/doctor/ratelimit. Exit codes
 # follow docs/CONTRACT.md: bare invocation is a usage error (EX_USAGE),
 # while -h/--help and -V/--version exit 0.
 #
@@ -310,7 +325,8 @@ main() {
 
     init_logging "$log_file"
     init_state "$log_file" "$state_file" "$lock_file"
-    validate_environment "$log_file" "$remote_name"
+    # doctor reports every problem itself, so it must not stop at the first one.
+    [[ "$1" == "doctor" ]] || validate_environment "$log_file" "$remote_name"
 
     command="$1"
     shift
@@ -318,7 +334,7 @@ main() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
             -n|--dry-run)  dry_run="true"; shift ;;
-            -f|--force)    force="true"; shift ;;
+            -f|--force)    force="true"; export FORCE="true"; shift ;;
             -v|--verbose)  export VERBOSE="true"; shift ;;
             -V|--version)  echo "drive_sync version ${VERSION}"; exit 0 ;;
             -h|--help)     show_help; exit 0 ;;
@@ -337,6 +353,9 @@ main() {
         status)
             show_status "$log_file" "$state_file" "$remote_name" \
                        "$local_path" "$optimized_marker"
+            ;;
+        doctor)
+            run_doctor "$log_file" "$state_file" "$remote_name" "$local_path"
             ;;
         ratelimit)
             recover_from_rate_limit "$log_file" "$remote_name" "$state_file" \

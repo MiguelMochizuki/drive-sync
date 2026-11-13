@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# cli.sh — Command-line interface
+# cli.sh: Command-line interface
 #
 # Provides help text, status display, and user-facing reset logic.
 
@@ -25,7 +25,7 @@ USAGE:
   drive-sync.sh [COMMAND] [OPTIONS]
 
 COMMANDS:
-  push, pull, sync, update, status, ratelimit
+  push, pull, sync, update, status, doctor, ratelimit
 
 Run 'drive-sync.sh --help' for details.
 EOF
@@ -38,7 +38,7 @@ EOF
 # Returns: the help text on stdout.
 show_help() {
     cat << EOF
-drive_sync v${VERSION} — Simple Google Drive sync with PDF compression
+drive_sync v${VERSION}: Simple Google Drive sync with PDF compression
 
 USAGE:
   drive-sync.sh [COMMAND] [OPTIONS]
@@ -49,6 +49,7 @@ COMMANDS:
   sync      Full sync (pull then push)
   update    Mirror from Drive, deleting local files not on Drive
   status    Show sync status
+  doctor    Check dependencies, remote, state and safety settings
   ratelimit Recover from rate limiting
 
 OPTIONS:
@@ -69,9 +70,126 @@ EOF
 # Status Display
 #=============================================================================
 
-# Print the status report: local/remote names, last sync and status from
-# the state file, PDF counts (total/optimized/pending) with local size,
-# and the remote's storage usage.
+# Check the whole environment and report every result, instead of
+# stopping at the first problem like validate_environment does.
+#
+# Parameters:
+#   log_file: path to the active log file
+#   state_file: path to state.json
+#   remote_name: the configured rclone remote
+#   local_path: local directory being synced
+#
+# Returns: 0 when every required check passes (warnings are allowed);
+#   EX_UNAVAILABLE when any required check fails. Prints the report on
+#   stdout, since the report is the command's result.
+run_doctor() {
+    local log_file="$1"
+    local state_file="$2"
+    local remote_name="$3"
+    local local_path="$4"
+    local failed=0 tool
+
+    echo ""
+    echo "drive_sync doctor"
+    echo ""
+
+    for tool in rclone gs jq flock; do
+        if command -v "$tool" &> /dev/null; then
+            echo "  [ok] $tool"
+        else
+            echo "  [FAIL] $tool is missing (install it, for example: sudo apt-get install $tool)"
+            failed=1
+        fi
+    done
+
+    if command -v bc &> /dev/null; then
+        echo "  [ok] bc"
+    else
+        echo "  [warn] bc is missing (optional: integer arithmetic is used instead)"
+    fi
+
+    if command -v rclone &> /dev/null; then
+        if ! rclone listremotes 2>/dev/null | grep -q "^${remote_name}$"; then
+            echo "  [FAIL] remote ${remote_name} is not configured (run 'rclone config')"
+            failed=1
+        elif ! rclone about "$remote_name" &> /dev/null; then
+            echo "  [FAIL] remote ${remote_name} is not reachable (check the network, or run 'rclone config reconnect ${remote_name}')"
+            failed=1
+        else
+            echo "  [ok] remote ${remote_name} is configured and reachable"
+        fi
+    fi
+
+    if [[ -d "$local_path" ]]; then
+        echo "  [ok] local directory $local_path"
+    else
+        echo "  [FAIL] local directory $local_path does not exist"
+        failed=1
+    fi
+
+    if [[ ! -w "$(dirname "$state_file")" ]]; then
+        echo "  [FAIL] service directory $(dirname "$state_file") is not writable"
+        failed=1
+    elif command -v jq &> /dev/null; then
+        local version
+        if version=$(jq -er '.schema_version' "$state_file" 2>/dev/null); then
+            echo "  [ok] state (schema $version)"
+        else
+            echo "  [FAIL] state file is not valid JSON or has no schema_version: $state_file"
+            failed=1
+        fi
+    fi
+
+    echo ""
+    echo "Settings:"
+    echo "  tracking: ${TRACKING_MODE}"
+    echo "  delete limit: ${MAX_DELETE_PERCENT}%"
+    echo "  archive: ${ARCHIVE_DIR}"
+
+    echo ""
+    if [[ $failed -ne 0 ]]; then
+        echo "Some required checks failed."
+        echo ""
+        return "$EX_UNAVAILABLE"
+    fi
+    echo "All required checks passed."
+    echo ""
+    return 0
+}
+
+# True when ANSI styling may be used: stdout is a terminal and NO_COLOR
+# (https://no-color.org) is not set.
+#
+# Parameters: none.
+#
+# Returns: 0 when styling is allowed, 1 otherwise.
+use_color() {
+    [[ -t 1 && -z "${NO_COLOR:-}" ]]
+}
+
+# Print text wrapped in an ANSI SGR code, or unchanged when use_color is
+# false. No trailing newline.
+#
+# Parameters:
+#   code: the SGR code, for example 1 (bold), 2 (dim), 31 (red)
+#   text: what to print
+#
+# Returns: the text on stdout.
+style() {
+    if use_color; then
+        printf '\033[%sm%s\033[0m' "$1" "$2"
+    else
+        printf '%s' "$2"
+    fi
+}
+
+# Print the status report as plain text in sections (Paths, Sync, Files,
+# Storage). Local and remote names, last sync and status from the state
+# file, PDF counts (total/optimized/pending) with local size, and the
+# remote's storage usage. In hash mode a PDF is optimized when state.json
+# tracks it and the file still exists; *.optimized.pdf files always count.
+# ponytail: a tracked file edited since its last push still counts as
+# optimized until the next push re-checks it; compare mtime if that matters.
 #
 # Parameters:
 #   log_file: path to the active log file
@@ -79,6 +197,8 @@ EOF
 #   remote_name: the configured rclone remote
 #   local_path: local directory being synced
 #   optimized_marker: suffix marking already-compressed PDFs
+#
+# Returns: the report on stdout. Styling follows use_color.
 show_status() {
     local log_file="$1"
     local state_file="$2"
@@ -87,50 +207,75 @@ show_status() {
     local optimized_marker="$5"
 
     echo ""
-    echo "📁 drive_sync v${VERSION}"
-    echo "─────────────────────────"
+    style 1 "drive_sync v${VERSION}"; echo ""
+    echo ""
 
-    echo "📂 Local: $local_path"
-    echo "☁️  Remote: $remote_name"
+    style 1 "Paths"; echo ""
+    echo "  Local: $local_path"
+    echo "  Remote: $remote_name"
 
     if [[ -f "$state_file" ]]; then
-        local last_sync sync_status
+        local last_sync sync_status status_code
         last_sync=$(get_state_value "$state_file" "last_sync" | sed 's/null/Never/')
         sync_status=$(get_state_value "$state_file" "sync_status" | sed 's/null/idle/')
 
-        local status_icon="🟢"
-        [[ "$sync_status" == "failed" ]] && status_icon="🔴"
-        [[ "$sync_status" == "idle" ]] && status_icon="⏸️"
-
-        echo "🔄 Last sync: $last_sync"
-        echo "$status_icon Status: $sync_status"
-    fi
-
-    if [[ -d "$local_path" ]]; then
-        local total_pdfs optimized_pdfs unoptimized_pdfs total_bytes
-        total_pdfs=$(find "$local_path" -type f -iname "*.pdf" 2>/dev/null | wc -l)
-        optimized_pdfs=$(find "$local_path" -type f -iname "*${optimized_marker}" 2>/dev/null | wc -l)
-        unoptimized_pdfs=$((total_pdfs - optimized_pdfs))
-
-        total_bytes=$(du -sb "$local_path" 2>/dev/null | cut -f1 || echo 0)
-        local total_size_human
-        total_size_human=$(format_size "$total_bytes")
+        case "$sync_status" in
+            success) status_code=32 ;;
+            failed)  status_code=31 ;;
+            idle)    status_code=2 ;;
+            *)       status_code=33 ;;
+        esac
 
         echo ""
-        echo "📄 PDFs: $total_pdfs total"
-        echo "   ✅ Optimized: $optimized_pdfs"
-        echo "   ⏳ Pending: $unoptimized_pdfs"
-        echo "   💾 Size: $total_size_human"
-
-        if [[ $unoptimized_pdfs -gt 0 ]]; then
-            echo ""
-            echo "💡 Run: drive-sync.sh push"
-        fi
+        style 1 "Sync"; echo ""
+        echo "  Last sync: $last_sync"
+        echo "  Status: $(style "$status_code" "$sync_status")"
     fi
 
-    show_storage_usage "$log_file" "$remote_name"
+    local pending=0
+    if [[ -d "$local_path" ]]; then
+        local total_pdfs marked_pdfs tracked_pdfs=0 optimized_pdfs total_bytes
+        total_pdfs=$(find "$local_path" -type f -iname "*.pdf" 2>/dev/null | wc -l)
+        marked_pdfs=$(find "$local_path" -type f -iname "*${optimized_marker}" 2>/dev/null | wc -l)
 
-    echo ""
-    echo "─────────────────────────"
+        if [[ "${TRACKING_MODE:-suffix}" == "hash" && -f "$state_file" ]]; then
+            local rel
+            while IFS=$'\t' read -r rel _; do
+                if [[ -n "$rel" && -f "${local_path%/}/$rel" ]]; then
+                    tracked_pdfs=$((tracked_pdfs + 1))
+                fi
+            done < <(list_tracked_files "$state_file")
+        fi
+
+        optimized_pdfs=$((marked_pdfs + tracked_pdfs))
+        pending=$((total_pdfs - optimized_pdfs))
+        [[ $pending -lt 0 ]] && pending=0
+
+        total_bytes=$(du -sb "$local_path" 2>/dev/null | cut -f1 || echo 0)
+
+        echo ""
+        style 1 "Files"; echo ""
+        echo "  PDFs: $total_pdfs total"
+        echo "    Optimized: $optimized_pdfs"
+        if [[ $pending -gt 0 ]]; then
+            echo "    Pending: $(style 33 "$pending")"
+        else
+            echo "    Pending: $pending"
+        fi
+        echo "  Size: $(format_size "$total_bytes")"
+    fi
+
+    local storage
+    storage=$(VERBOSE=false show_storage_usage "$log_file" "$remote_name" "  ")
+    if [[ -n "$storage" ]]; then
+        echo ""
+        style 1 "Storage"; echo ""
+        echo "$storage"
+    fi
+
+    if [[ $pending -gt 0 ]]; then
+        echo ""
+        style 2 "Next: drive-sync.sh push"; echo ""
+    fi
     echo ""
 }
