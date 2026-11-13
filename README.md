@@ -84,6 +84,7 @@ drive-sync/
 │   ├── config.sh
 │   ├── limit.sh
 │   ├── logging.sh
+│   ├── plan.sh
 │   ├── safety.sh
 │   ├── state.sh
 │   ├── storage.sh
@@ -106,7 +107,7 @@ drive-sync/
 
 ### Key modules
 
-`drive-sync.sh` is the entry point and sources the ten modules under
+`drive-sync.sh` is the entry point and sources the eleven modules under
 `lib/`:
 
 | Module | Responsibility |
@@ -117,6 +118,7 @@ drive-sync/
 | `storage.sh` | Storage usage in binary units (GiB, MiB, KiB) |
 | `limit.sh` | Rate limit detection and recovery |
 | `safety.sh` | Deletion guard: plan, percentage limit, confirmation |
+| `plan.sh` | The read-only `plan` report: compression, transfers, deletions |
 | `logging.sh` | Structured logging with rotation |
 | `state.sh` | JSON state persistence with file locking |
 | `utils.sh` | Path validation and formatting helpers |
@@ -145,6 +147,7 @@ drive-sync push         # upload to Drive (compresses PDFs first)
 drive-sync pull         # download from Drive, never deletes locally
 drive-sync sync         # pull, then push
 drive-sync update       # mirror from Drive, deleting local files not on Drive
+drive-sync plan         # show what a run would compress, transfer and delete
 drive-sync status       # show sync status and storage usage
 drive-sync doctor       # check dependencies, remote, state and settings
 drive-sync ratelimit    # manual rate limit recovery
@@ -183,6 +186,44 @@ Next: drive-sync.sh push
 In `hash` mode, "Optimized" counts the PDFs `state.json` tracks plus any
 legacy `*.optimized.pdf` files.
 
+### Plan
+
+`plan` shows what a run would do and changes nothing: no file, no
+`state.json` entry, no Drive change. It takes the same direction as the
+other commands (`push`, `pull`, `sync` or `update`) and defaults to `sync`.
+
+```
+drive_sync plan (sync)
+
+Compress
+  3 PDFs, 11.34 MiB to process
+  Saving: no estimate yet (nothing optimized before); try --measure
+    books/analysis.pdf (7.62 MiB)
+    books/scan-2024.pdf (2.86 MiB)
+    notes.pdf (878.90 KiB)
+
+Download
+  2 files would be copied
+
+Upload
+  2 files would be copied
+
+Delete
+  1 of 200 files (limit 50%)
+  would continue
+```
+
+The saving is an estimate: the ratio recorded in `state.json` applied to
+the pending PDFs. With no history there is no estimate. `plan --measure`
+compresses every candidate into a temporary directory and reports what the
+real run would save; it takes as long as compressing, and leaves your files
+alone. `plan --json` prints the same report as one JSON document, for
+scripts, and nothing else on stdout.
+
+In a `sync` the pull runs first, so the delete count leaves out files the
+pull would restore. To push a local deletion to Drive, use `push`: `sync`
+downloads the file again.
+
 ### Options
 
 | Flag | Description |
@@ -190,6 +231,8 @@ legacy `*.optimized.pdf` files.
 | `-n`, `--dry-run` | Preview changes without modifying anything: no transfer, no compression, no state change. With `-v`, lists the PDFs it would compress |
 | `-f`, `--force` | Skip the deletion confirmation (the deletion limit still applies) |
 | `-v`, `--verbose` | Show detailed progress (INFO/SUCCESS lines) |
+| `--json` | With `plan`: print the report as JSON |
+| `--measure` | With `plan`: measure PDF savings with `gs` instead of estimating |
 | `-h`, `--help` | Show help text |
 | `-V`, `--version` | Show version |
 
