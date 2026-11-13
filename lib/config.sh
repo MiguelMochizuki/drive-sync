@@ -92,6 +92,12 @@ MAX_DELETE_PERCENT="${MAX_DELETE_PERCENT:-50}"
 ARCHIVE_DIR="${ARCHIVE_DIR:-${DRIVE_SYNC_HOME}/archive}"
 REMOTE_BACKUP_DIR="${REMOTE_BACKUP_DIR:-}"
 
+# TRACKING_MODE: how compression remembers what is already optimized.
+#   hash:   files keep their names; state.json tracks content hashes.
+#   suffix: legacy; files are renamed to *.optimized.pdf.
+# Existing *.optimized.pdf files are recognized in both modes.
+TRACKING_MODE="${TRACKING_MODE:-hash}"
+
 #=============================================================================
 # Exit Codes (see docs/CONTRACT.md)
 #=============================================================================
@@ -129,7 +135,7 @@ readonly RCLONE_DRIVE_CHUNK_SIZE
 readonly OPTIMIZED_MARKER GHOSTSCRIPT_DEVICE MIN_VALID_COMPRESSED_SIZE
 readonly RATE_LIMIT_BACKOFF_SECONDS MAX_RETRIES RETRY_DELAY
 readonly ALLOWED_PATHS
-readonly MAX_DELETE_PERCENT ARCHIVE_DIR REMOTE_BACKUP_DIR
+readonly MAX_DELETE_PERCENT ARCHIVE_DIR REMOTE_BACKUP_DIR TRACKING_MODE
 
 #=============================================================================
 # Getters
