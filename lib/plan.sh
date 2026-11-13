@@ -272,6 +272,17 @@ render_plan_text() {
         echo "  $(jq -r '.transfers.push.copy_files' <<< "$doc") files would be copied"
     fi
 
+    if [[ "$(jq -r '.memory' <<< "$doc")" != "null" ]]; then
+        echo ""
+        style 36 "Since last sync"; echo ""
+        if [[ "$(jq -r '.memory.manifest' <<< "$doc")" == "true" ]]; then
+            echo "  $(jq -r '.memory.removed_local' <<< "$doc") files removed here (would be removed from Drive, to its trash)"
+            echo "  $(jq -r '.memory.removed_remote' <<< "$doc") files removed on Drive (would be moved to the local archive)"
+        else
+            echo "  No manifest yet: the first sync pulls and pushes as usual and records one"
+        fi
+    fi
+
     local del
     del=$(jq -c '(.transfers.push // .transfers.update // null) | .delete' <<< "$doc")
     if [[ "$del" != "null" ]]; then
@@ -325,17 +336,37 @@ show_plan() {
 
     # In a sync the pull runs first, so what it restores is local again by
     # the time the push looks for deletions.
-    local restored dir
+    local restored dir tmp memory="null" rc
     restored=$(mktemp)
+    tmp=$(mktemp -d)
+    if [[ "$direction" == "sync" ]]; then
+        memory='{"manifest": false}'
+        rc=0
+        memory_diff "$log_file" "$local_path" "$remote_name" "$(get_manifest_file)" \
+            "$tmp/removed_local" "$tmp/removed_remote" || rc=$?
+        if [[ "$rc" -eq 1 ]]; then rm -rf "$restored" "$tmp"; return 1; fi
+        if [[ "$rc" -eq 0 ]]; then
+            memory=$(jq -n --argjson r "$(wc -l < "$tmp/removed_local")" \
+                           --argjson l "$(wc -l < "$tmp/removed_remote")" \
+                           '{manifest: true, removed_local: $r, removed_remote: $l}')
+        else
+            : > "$tmp/removed_local"
+        fi
+    fi
     for dir in $(case "$direction" in sync) echo "pull push" ;; *) echo "$direction" ;; esac); do
         local names_out="" skip_file=""
         [[ "$direction" == "sync" && "$dir" == "pull" ]] && names_out="$restored"
         [[ "$direction" == "sync" && "$dir" == "push" ]] && skip_file="$restored"
         part=$(plan_transfer_json "$log_file" "$dir" "$local_path" "$remote_name" \
-                   "$names_out" "$skip_file") || { rm -f "$restored"; return 1; }
+                   "$names_out" "$skip_file") || { rm -rf "$restored" "$tmp"; return 1; }
+        # What the sync would honor is not pulled back, so it is not a restore.
+        if [[ "$dir" == "pull" && "$direction" == "sync" && -s "$tmp/removed_local" ]]; then
+            grep -vxFf "$tmp/removed_local" "$restored" > "$restored.f" || true
+            mv -f "$restored.f" "$restored"
+        fi
         transfers=$(jq -c --arg d "$dir" --argjson p "$part" '. + {($d): $p}' <<< "$transfers")
     done
-    rm -f "$restored"
+    rm -rf "$restored" "$tmp"
 
     if [[ "$direction" == "push" || "$direction" == "sync" ]]; then
         [[ "$measure" == "true" ]] && echo "Measuring PDFs with gs, this can take a while..." >&2
@@ -345,7 +376,8 @@ show_plan() {
 
     local doc
     doc=$(jq -n --arg d "$direction" --argjson c "$compress" --argjson t "$transfers" \
-               '{schema_version: 1, direction: $d, compress: $c, transfers: $t}')
+               --argjson m "$memory" \
+               '{schema_version: 1, direction: $d, compress: $c, transfers: $t, memory: $m}')
 
     if [[ "$json" == "true" ]]; then
         jq . <<< "$doc"

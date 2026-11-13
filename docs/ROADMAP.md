@@ -39,7 +39,7 @@ v2.2 is released as 2.2.0 (PR #9): real confirmation, the deletion limit, backup
 
 Before v2.2, `-f` was parsed in `main()` but never read, so no confirmation existed, and `push` and `update` deleted files without asking and without a `--backup-dir`.
 
-`plan` (with `--json` and `--measure`) is done (design in `docs/superpowers/specs/2026-11-13-plan-command-design.md`). The savings report in `status` and the quarantine with `restore` are done too (the quarantine retention also prunes the `update` archive, as promised above). Next in v3.0: rename detection, then `init` and the README rewrite.
+`plan` (with `--json` and `--measure`) is done (design in `docs/superpowers/specs/2026-11-13-plan-command-design.md`). The savings report in `status` and the quarantine with `restore` are done too (the quarantine retention also prunes the `update` archive, as promised above). Renames and removals are handled by the sync memory (`lib/memory.sh`, design in `docs/superpowers/specs/2026-11-13-sync-memory-design.md`): a rename is a removal plus a new file, so `sync` no longer duplicates or reverts it. Server side moves to avoid re-uploading a renamed file remain a possible later optimization. Next in v3.0: `init` and the README rewrite.
 
 ## Phases
 

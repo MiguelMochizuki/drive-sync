@@ -39,6 +39,7 @@ LOG_DIR="${DRIVE_SYNC_HOME}"
 STATE_FILE="${STATE_DIR}/state.json"
 LOCK_FILE="${STATE_DIR}/state.lock"
 RUN_LOCK_FILE="${STATE_DIR}/run.lock"
+MANIFEST_FILE="${STATE_DIR}/manifest"
 LOG_FILE="${LOG_DIR}/drive_sync.log"
 
 #=============================================================================
@@ -138,7 +139,7 @@ ALLOWED_PATHS=("${DRIVE_ROOT}")
 #=============================================================================
 
 readonly REMOTE_NAME DRIVE_ROOT LOCAL_PATH STATE_DIR LOG_DIR
-readonly STATE_FILE LOCK_FILE RUN_LOCK_FILE LOG_FILE
+readonly STATE_FILE LOCK_FILE RUN_LOCK_FILE MANIFEST_FILE LOG_FILE
 readonly RCLONE_TRANSFERS RCLONE_CHECKERS RCLONE_TPSLIMIT
 readonly RCLONE_TPSLIMIT_BURST RCLONE_TIMEOUT RCLONE_RETRIES
 readonly RCLONE_DRIVE_CHUNK_SIZE
@@ -160,6 +161,7 @@ get_log_file()                          { echo "$LOG_FILE"; }
 get_state_file()                        { echo "$STATE_FILE"; }
 get_lock_file()                         { echo "$LOCK_FILE"; }
 get_run_lock_file()                     { echo "$RUN_LOCK_FILE"; }
+get_manifest_file()                     { echo "$MANIFEST_FILE"; }
 get_optimized_marker()                  { echo "$OPTIMIZED_MARKER"; }
 get_allowed_paths()                     { echo "${ALLOWED_PATHS[@]}"; }
 get_max_retries()                       { echo "$MAX_RETRIES"; }
