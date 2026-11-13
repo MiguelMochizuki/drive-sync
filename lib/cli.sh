@@ -25,7 +25,7 @@ USAGE:
   drive-sync.sh [COMMAND] [OPTIONS]
 
 COMMANDS:
-  push, pull, sync, update, status, doctor, ratelimit
+  push, pull, sync, update, plan, status, doctor, ratelimit
 
 Run 'drive-sync.sh --help' for details.
 EOF
@@ -48,12 +48,15 @@ COMMANDS:
   pull      Download remote changes
   sync      Full sync (pull then push)
   update    Mirror from Drive, deleting local files not on Drive
+  plan      Show what a run would compress, transfer and delete (changes nothing)
   status    Show sync status
   doctor    Check dependencies, remote, state and safety settings
   ratelimit Recover from rate limiting
 
 OPTIONS:
   -n, --dry-run   Preview changes (no file is modified; -v lists PDFs to compress)
+  --json          With plan: print the report as JSON
+  --measure       With plan: measure PDF savings with gs instead of estimating
   -f, --force     Skip confirmations
   -v, --verbose   Show detailed progress
   -h, --help      Show this help
@@ -63,6 +66,7 @@ EXAMPLES:
   drive-sync.sh status
   drive-sync.sh push
   drive-sync.sh sync -n
+  drive-sync.sh plan push --json
 EOF
 }
 

@@ -29,6 +29,7 @@ source "${LIB_DIR}/limit.sh"
 source "${LIB_DIR}/compression.sh"
 source "${LIB_DIR}/sync_ops.sh"
 source "${LIB_DIR}/safety.sh"
+source "${LIB_DIR}/plan.sh"
 source "${LIB_DIR}/cli.sh"
 
 #=============================================================================
@@ -281,7 +282,7 @@ do_sync() {
 #=============================================================================
 
 # Entry point: load settings, parse arguments, validate the environment
-# and dispatch to push/pull/sync/update/status/doctor/ratelimit. Exit codes
+# and dispatch to push/pull/sync/update/plan/status/doctor/ratelimit. Exit codes
 # follow docs/CONTRACT.md: bare invocation is a usage error (EX_USAGE),
 # while -h/--help and -V/--version exit 0.
 #
@@ -335,8 +336,17 @@ main() {
     command="$1"
     shift
 
+    local plan_dir="" plan_json="false" plan_measure="false"
+
     while [[ $# -gt 0 ]]; do
         case "$1" in
+            push|pull|sync|update)
+                [[ "$command" == "plan" && -z "$plan_dir" ]] || { show_usage >&2; exit "$EX_USAGE"; }
+                plan_dir="$1"; shift ;;
+            --json|--measure)
+                [[ "$command" == "plan" ]] || { show_usage >&2; exit "$EX_USAGE"; }
+                [[ "$1" == "--json" ]] && plan_json="true" || plan_measure="true"
+                shift ;;
             -n|--dry-run)  dry_run="true"; export DRY_RUN="true"; shift ;;
             -f|--force)    force="true"; export FORCE="true"; shift ;;
             -v|--verbose)  export VERBOSE="true"; shift ;;
@@ -353,6 +363,16 @@ main() {
                     "$lock_file" "$optimized_marker" "$gs_device" \
                     "$min_valid_size" "$backoff_seconds" "$retry_delay" \
                     "$max_retries" "$command" "$dry_run" "${allowed_paths[@]}"
+            ;;
+        plan)
+            # The report is the command's result, so -v log lines must not
+            # land in the JSON document on stdout.
+            [[ "$plan_json" == "true" ]] && export VERBOSE="false"
+            export DRY_RUN="true"
+            show_plan "$log_file" "$state_file" "$lock_file" "$local_path" \
+                      "$remote_name" "$optimized_marker" "$gs_device" \
+                      "$min_valid_size" "${plan_dir:-sync}" "$plan_json" \
+                      "$plan_measure"
             ;;
         status)
             show_status "$log_file" "$state_file" "$remote_name" \
