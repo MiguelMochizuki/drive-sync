@@ -75,7 +75,11 @@ sync_to_drive() {
     log_info "$log_file" "Uploading to Google Drive..."
 
     if rclone sync "$local_path" "$remote_name" $flags "${safety[@]}"; then
-        log_success "$log_file" "Upload completed successfully"
+        if [[ "$dry_run" == "true" ]]; then
+            log_success "$log_file" "Dry run finished, nothing was uploaded"
+        else
+            log_success "$log_file" "Upload completed successfully"
+        fi
         if [[ "$dry_run" != "true" ]]; then
             update_state "$log_file" "$state_file" "$lock_file" "last_sync" "$(date -Iseconds)"
             update_state "$log_file" "$state_file" "$lock_file" "sync_status" "success"
@@ -124,7 +128,11 @@ sync_from_drive() {
     log_info "$log_file" "Downloading from Google Drive..."
 
     if rclone copy "$remote_name" "$local_path" $flags; then
-        log_success "$log_file" "Download completed successfully"
+        if [[ "$dry_run" == "true" ]]; then
+            log_success "$log_file" "Dry run finished, nothing was downloaded"
+        else
+            log_success "$log_file" "Download completed successfully"
+        fi
         return 0
     else
         local exit_code=$?
@@ -168,7 +176,11 @@ update_from_drive() {
     log_info "$log_file" "Mirroring from Google Drive (local files not on Drive are archived in $archive)..."
 
     if rclone sync "$remote_name" "$local_path" $flags --backup-dir "$archive"; then
-        log_success "$log_file" "Mirror completed successfully"
+        if [[ "$dry_run" == "true" ]]; then
+            log_success "$log_file" "Dry run finished, nothing was changed locally"
+        else
+            log_success "$log_file" "Mirror completed successfully"
+        fi
         return 0
     else
         local exit_code=$?

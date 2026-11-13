@@ -40,6 +40,9 @@ output to stdout regardless of -v, since that output is the command's actual
 result, not a log line. rclone's --progress bar is only enabled with -v.
 The log file always receives every level, unaffected by -v.
 
+A dry run (-n) that succeeds ends by printing one stdout line, "Dry run: nothing was changed." with a pointer to plan, even without -v, because its INFO details are
+silent by default. A failing dry run prints no such line.
+
 The deletion confirmation prompt ("Continue? [y/N]") is written to stderr
 and only appears when both stdin and stdout are a terminal. The guard's
 error and warning lines follow the table above.

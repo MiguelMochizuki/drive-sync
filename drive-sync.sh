@@ -167,7 +167,10 @@ handle_sync_result() {
 #
 # Returns: 0 on success; 1 when compression failed or the deletion guard
 #   aborted (see lib/safety.sh); EX_TEMPFAIL when retries are exhausted;
-#   EX_UNAVAILABLE on a fatal error. Reads the FORCE environment variable.
+#   EX_UNAVAILABLE on a fatal error. Reads the FORCE and DRY_RUN
+#   environment variables. After a successful push, sync or update it
+#   records the manifest (see lib/memory.sh), and sync honors removals
+#   made on either side first.
 do_sync() {
     local log_file="$1"
     local local_path="$2"
@@ -406,6 +409,11 @@ main() {
                     "$lock_file" "$optimized_marker" "$gs_device" \
                     "$min_valid_size" "$backoff_seconds" "$retry_delay" \
                     "$max_retries" "$command" "$dry_run" "${allowed_paths[@]}"
+            # A dry run logs at INFO, which is silent without -v, so say
+            # that it ran and where the details are. A failure exits above.
+            if [[ "$dry_run" == "true" ]]; then
+                echo "Dry run: nothing was changed. 'drive-sync.sh plan' shows what a run would do."
+            fi
             ;;
         plan)
             # The report is the command's result, so -v log lines must not

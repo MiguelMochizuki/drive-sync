@@ -222,3 +222,32 @@ teardown() {
     run grep -q '^cleanup\|^cache' "$MOCK_STATE_DIR/rclone_calls.log"
     [ "$status" -ne 0 ]
 }
+
+@test "a dry run says nothing was transferred instead of reporting a completed upload" {
+    export MOCK_RCLONE_EXIT_SEQUENCE="0"
+    run "$REPO_ROOT/drive-sync.sh" push -n -v
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"Upload completed successfully"* ]]
+    [[ "$output" == *"Dry run finished, nothing was uploaded"* ]]
+}
+
+@test "a dry run ends with a one line note pointing to plan, even without -v" {
+    export MOCK_RCLONE_EXIT_SEQUENCE="0"
+    run --separate-stderr "$REPO_ROOT/drive-sync.sh" push -n
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Dry run: nothing was changed"* ]]
+    [[ "$output" == *"drive-sync.sh plan"* ]]
+}
+
+@test "a real run prints no dry run note" {
+    export MOCK_RCLONE_EXIT_SEQUENCE="0"
+    run --separate-stderr "$REPO_ROOT/drive-sync.sh" push
+    [[ "$output" != *"Dry run"* ]]
+}
+
+@test "a failed dry run prints no all clear note" {
+    export MOCK_RCLONE_EXIT_SEQUENCE="3"
+    run --separate-stderr "$REPO_ROOT/drive-sync.sh" push -n
+    [ "$status" -ne 0 ]
+    [[ "$output" != *"nothing was changed"* ]]
+}
