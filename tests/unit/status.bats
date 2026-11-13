@@ -229,3 +229,28 @@ status_output() {
     [[ "$output" != *"Saved:"* ]]
     [[ "$output" != *"Not counted"* ]]
 }
+
+@test "status shows the Quarantine line when originals are kept" {
+    source "$REPO_ROOT/lib/quarantine.sh"
+    mkdir -p "$QUARANTINE_DIR/a.pdf"
+    head -c 2048 /dev/zero > "$QUARANTINE_DIR/a.pdf/20261113T100000"
+    run status_output
+    [[ "$output" == *"Quarantine: 1 original, 2.00 KiB (kept 30 days)"* ]]
+}
+
+@test "status omits the Quarantine line when nothing is kept" {
+    source "$REPO_ROOT/lib/quarantine.sh"
+    run status_output
+    [[ "$output" != *"Quarantine"* ]]
+}
+
+@test "status omits the Quarantine line when the quarantine is off" {
+    mkdir -p "$QUARANTINE_DIR/a.pdf"
+    head -c 2048 /dev/zero > "$QUARANTINE_DIR/a.pdf/20261113T100000"
+    run env QUARANTINE_RETENTION_DAYS=0 QUARANTINE_DIR="$QUARANTINE_DIR" REPO_ROOT="$REPO_ROOT" \
+        LOCAL_PATH="$LOCAL_PATH" bash -c '
+        for m in config utils logging state storage quarantine cli; do source "$REPO_ROOT/lib/$m.sh"; done
+        show_status "$LOG_FILE" "$STATE_FILE" "drive:" "$LOCAL_PATH" ".optimized.pdf"'
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"Quarantine"* ]]
+}

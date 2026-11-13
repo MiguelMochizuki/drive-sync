@@ -103,3 +103,18 @@ path_without() {
     run "$REPO_ROOT/drive-sync.sh" --help
     [[ "$output" == *"doctor"* ]]
 }
+
+@test "doctor reports the quarantine retention and directory" {
+    run "$REPO_ROOT/drive-sync.sh" doctor
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"quarantine: 30 days in $HOME/.drive-sync/originals"* ]]
+}
+
+@test "doctor warns when the quarantine directory cannot be written" {
+    mkdir -p "$HOME/.drive-sync/originals"
+    chmod 555 "$HOME/.drive-sync/originals"
+    run "$REPO_ROOT/drive-sync.sh" doctor
+    chmod 755 "$HOME/.drive-sync/originals"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[warn] quarantine directory"* ]]
+}
