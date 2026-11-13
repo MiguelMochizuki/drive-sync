@@ -158,7 +158,7 @@ style. On a terminal titles are cyan, `[ok]` is green, `[FAIL]` is red and
 Redirected output never contains escape codes.
 
 ```
-drive_sync v2.2.0
+drive_sync v2.2.1
 
 Paths
   Local: /home/you/drive
