@@ -41,6 +41,9 @@
 #   input_file: the PDF to process
 #   allowed_paths: remaining arguments, prefixes validate_path checks against
 #
+# Does nothing when the DRY_RUN environment variable is "true": it returns
+# 0 without running gs or touching the file.
+#
 # Returns: 0 if the file ends up marked optimized, whether by
 #   compression or because it was already small or already optimal;
 #   1 if compression failed or the input path was invalid, leaving the
@@ -60,6 +63,8 @@ compress_pdf() {
         log_error "$log_file" "Invalid path for compression: $input_file"
         return 1
     fi
+
+    [[ "${DRY_RUN:-false}" == "true" ]] && return 0
 
     if [[ "$validated_path" == *"$optimized_marker" ]]; then
         return 0
@@ -181,7 +186,8 @@ compress_pdf() {
 # Decide whether a file's current content is already tracked as optimized
 # (hash mode). Compares size and mtime first, so unchanged files are never
 # re-read; when those differ it compares the SHA-256, and a match (for
-# example after a touch or a copy) refreshes the recorded mtime.
+# example after a touch or a copy) refreshes the recorded mtime, except
+# when DRY_RUN is "true", which never writes state.
 #
 # Parameters:
 #   log_file: path to the active log file
@@ -214,6 +220,7 @@ is_tracked_current() {
     hash=$(get_file_hash "$file") || return 1
     [[ "$hash" == "${_hash_map[$rel]}" ]] || return 1
 
+    [[ "${DRY_RUN:-false}" == "true" ]] && return 0
     record_file_state "$log_file" "$state_file" "$lock_file" "$rel" \
         "$hash" "$size" "$size" "$mtime" || true
     return 0
@@ -231,6 +238,10 @@ is_tracked_current() {
 #   gs_device: the Ghostscript output device
 #   min_valid_size: minimum acceptable compressed size in bytes
 #   allowed_paths: remaining arguments, prefixes validate_path checks against
+#
+# When the DRY_RUN environment variable is "true", it only logs a
+# "Would compress" line per pending file and returns 0: no gs call, no
+# file change, no state write.
 #
 # Returns: 0 if every PDF ended up optimized; 1 if one or more files
 #   failed compression, in which case those originals are preserved
@@ -283,6 +294,18 @@ compress_drive_pdfs() {
     done < <(find "$local_path" -type f -iname "*.pdf" -print0 2>/dev/null)
 
     local total_files=${#pdf_files[@]}
+
+    if [[ "${DRY_RUN:-false}" == "true" ]]; then
+        if [[ $total_files -eq 0 ]]; then
+            log_info "$log_file" "All PDFs are already optimized"
+        else
+            for file in "${pdf_files[@]}"; do
+                log_info "$log_file" "Would compress: $file ($(format_size "$(get_file_size "$file")"))"
+            done
+            log_info "$log_file" "Would compress $total_files files"
+        fi
+        return 0
+    fi
 
     if [[ $total_files -eq 0 ]]; then
         log_info "$log_file" "All PDFs are already optimized"
