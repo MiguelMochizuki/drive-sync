@@ -241,17 +241,17 @@ render_plan_text() {
         if [[ "$count" -eq 0 ]]; then
             echo "  Nothing to compress"
         else
-            echo "  $count PDFs, $(format_size "$total") to process"
+            echo "  $count PDF$([[ "$count" -eq 1 ]] || echo s), $(format_size "$total") to process"
             case "$method" in
                 measured) echo "  Saving: $(format_size "$saved") (${ratio}%), measured with gs" ;;
                 history)  echo "  Saving: about $(format_size "$saved") (${ratio}%), estimated from history" ;;
                 *)        echo "  Saving: no estimate yet (nothing optimized before); try --measure" ;;
             esac
-            local line
-            while IFS= read -r line; do
-                echo "    $line"
+            local csize cpath
+            while IFS=$'\t' read -r csize cpath; do
+                echo "    $cpath ($(format_size "$csize"))"
             done < <(jq -r '.compress.candidates | sort_by(-.size) | .[0:10][]
-                            | "\(.path) (\(.size) bytes)"' <<< "$doc")
+                            | [.size, .path] | @tsv' <<< "$doc")
             [[ "$count" -gt 10 ]] && echo "    ... and $((count - 10)) more"
         fi
     fi

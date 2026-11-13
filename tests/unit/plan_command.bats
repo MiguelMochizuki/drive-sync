@@ -130,3 +130,13 @@ snapshot() {
     run --separate-stderr plan push --json
     [ "$(jq -r '.transfers.push.delete.count' <<< "$output")" = "3" ]
 }
+
+@test "plan text shows candidate sizes in readable units" {
+    run --separate-stderr plan push
+    [[ "$output" == *"big.pdf (48.82 KiB)"* ]]
+}
+
+@test "plan text uses the singular for one PDF" {
+    run --separate-stderr plan push
+    [[ "$output" == *"1 PDF, "* ]]
+}
