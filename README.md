@@ -2,8 +2,10 @@
 
 ![CI](https://github.com/MiguelMochizuki/drive-sync/actions/workflows/ci.yml/badge.svg)
 
-A command-line tool for synchronizing PDF files with Google Drive, with
-optional compression before upload.
+Drive Sync keeps a local folder and Google Drive in step and shrinks your
+PDFs on the way, so a large archive of papers, books and scans takes less of
+your Drive quota. Anything that changes or removes files can be previewed
+first and undone afterwards.
 
 - [Overview](#overview)
 - [Quick Start](#quick-start)
@@ -16,20 +18,27 @@ optional compression before upload.
 
 ## Overview
 
-Drive Sync wraps `rclone` to keep a local directory and a Google Drive
-remote in step. Before uploading, it compresses PDFs with Ghostscript.
+Drive Sync wraps `rclone`. Before uploading it compresses PDFs with
+Ghostscript, and the rest is about doing that without losing anything.
+
+- `plan` shows what a run would compress, transfer and delete, with the
+  space it expects to save, and changes nothing.
+- A compressed PDF replaces the original only when it is smaller and valid.
+  The original is kept for 30 days, and `restore` puts it back.
+- Deletions are limited (50% of the files by default, even with `-f`) and
+  go to Drive's trash or to a local archive, never straight to nothing.
+- `sync` remembers the last sync, so a file you rename or delete is not
+  brought back or duplicated.
+- `status` shows how much space compression has freed.
 
 ### How a sync works
 
-1. **Scan**: find all PDFs in the local directory
-2. **Compress**: optimize with Ghostscript
-   - files under 10 KB are marked optimized without compressing
-   - a compressed file replaces the original in place (same name), only
-     when it is smaller and valid; its content hash is recorded in
-     `state.json` so it is not processed again
-   - failed compressions leave the original in place for retry
-3. **Sync**: transfer files to or from Drive
-4. **Monitor**: detect and recover from rate limits
+Before a push or sync, the local PDFs are compressed with Ghostscript. Files
+under 10 KB are left alone. A compressed file replaces the original in place
+(same name) only when it is smaller and valid, and its content hash is
+recorded in `state.json` so it is not processed again. A failed compression
+leaves the original in place for the next run. Then rclone transfers the
+files, and a rate limit is detected and waited out.
 
 ### Direction of each command
 
@@ -82,12 +91,25 @@ export PATH="$PATH:$HOME/.local/bin"
 
 To remove: `sudo make uninstall`.
 
+### First run
+
+```bash
+rclone config           # once: create a remote of type drive
+drive-sync init         # writes the config, creates ~/drive, checks the setup
+drive-sync plan         # see what a first sync would do, changing nothing
+drive-sync sync
+```
+
+`init` is safe to repeat. It never overwrites a config and never touches the
+files in your synced directory. If the doctor checks it runs fail, it tells
+you what is missing and exits `69`.
+
 ### Manual setup
 
 ```bash
 chmod +x drive-sync.sh lib/*.sh
 rclone config
-cp lib/config.sh ~/.drive-sync/drive-sync.conf   # optional, for overrides
+./drive-sync.sh init
 ./drive-sync.sh sync
 ```
 
@@ -172,6 +194,7 @@ drive-sync push         # upload to Drive (compresses PDFs first)
 drive-sync pull         # download from Drive, never deletes locally
 drive-sync sync         # pull, then push
 drive-sync update       # mirror from Drive, deleting local files not on Drive
+drive-sync init         # first-run setup: config, local directory, checks
 drive-sync plan         # show what a run would compress, transfer and delete
 drive-sync restore PATH # put a compressed PDF's original back (restore --list shows what is kept)
 drive-sync status       # show sync status and storage usage
@@ -322,7 +345,9 @@ RETRY_DELAY=60
 | `RCLONE_DRIVE_CHUNK_SIZE` | `128M` | Upload chunk size |
 | `TRACKING_MODE` | `hash` | `hash` keeps file names and tracks content in `state.json`; `suffix` is the legacy `*.optimized.pdf` renaming |
 | `MAX_DELETE_PERCENT` | `50` | Abort a push/update that would delete more than this percentage of the destination |
-| `ARCHIVE_DIR` | `~/.drive-sync/archive` | Where `update` moves the local files it would delete |
+| `ARCHIVE_DIR` | `~/.drive-sync/archive` | Where `update` and `sync` move local files they remove |
+| `QUARANTINE_DIR` | `~/.drive-sync/originals` | Where replaced originals are kept |
+| `QUARANTINE_RETENTION_DAYS` | `30` | Days to keep originals and the archive; `0` turns the quarantine off |
 | `REMOTE_BACKUP_DIR` | empty | Optional rclone `--backup-dir` for `push`; must be outside the destination |
 | `OPTIMIZED_MARKER` | `.optimized.pdf` | Legacy suffix: files carrying it are recognized as optimized |
 | `GHOSTSCRIPT_DEVICE` | `pdfwrite` | Ghostscript output device |
@@ -390,7 +415,7 @@ distinguished from fatal ones (exit 7), which are not retried.
 | `0` | Success |
 | `1` | General failure, or the deletion guard aborted (limit exceeded, plan unavailable, or you answered no) |
 | `2` | Usage error: unknown command, unknown flag, or no arguments |
-| `69` | Resource unavailable: fatal rclone error, a missing dependency/remote, or a failed `doctor` check |
+| `69` | Resource unavailable: fatal rclone error, a missing dependency/remote, or a failed `doctor` or `init` check |
 | `75` | Temporary failure: retries exhausted after transient or rate-limit errors, or another run is already in progress |
 
 See [`docs/CONTRACT.md`](docs/CONTRACT.md) for the full exit-code and

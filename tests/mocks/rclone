@@ -11,7 +11,9 @@
 # about --json: prints MOCK_RCLONE_ABOUT_JSON (default a zeroed quota),
 #   exits 0, unless MOCK_RCLONE_ABOUT_EXIT is set to a nonzero value.
 # about (no --json): exits MOCK_RCLONE_ABOUT_EXIT, default 0.
-# listremotes: prints MOCK_RCLONE_REMOTES, default "drive:".
+# listremotes: prints the space separated names in MOCK_RCLONE_REMOTES (default
+#   "drive:"), one per line; with --long each is followed by
+#   MOCK_RCLONE_REMOTE_TYPE (default "drive"), like "name: type".
 # cleanup, cache: always exit 0.
 #
 # plan call ("sync" or "copy" with "--dry-run --log-level ..."): used by
@@ -115,7 +117,13 @@ case "$subcommand" in
         exit "${MOCK_RCLONE_DELETE_EXIT:-0}"
         ;;
     listremotes)
-        printf '%s\n' "${MOCK_RCLONE_REMOTES:-drive:}"
+        for r in ${MOCK_RCLONE_REMOTES-drive:}; do
+            if [[ "$*" == *"--long"* ]]; then
+                printf '%s %s\n' "$r" "${MOCK_RCLONE_REMOTE_TYPE:-drive}"
+            else
+                printf '%s\n' "$r"
+            fi
+        done
         exit 0
         ;;
     cleanup|cache)
