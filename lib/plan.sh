@@ -136,3 +136,62 @@ plan_compress_json() {
              {method: $m, saved_bytes: ($r * $t | round), ratio: (($r * 10000 | round) / 10000)}
            else {method: null, saved_bytes: null, ratio: null} end)}'
 }
+
+# Build the transfers and deletions section of the plan as one JSON object,
+# from an rclone dry run shaped like the real command: copy for pull, sync
+# for push (local to remote) and update (remote to local). Only counts are
+# reported, because rclone prints sizes in human units. The deletion block
+# follows guard_deletions: it would abort when deletions exceed
+# MAX_DELETE_PERCENT of the destination.
+#
+# Parameters:
+#   log_file: path to the active log file
+#   direction: "push", "pull" or "update"
+#   local_path: the synced directory
+#   remote_name: the configured rclone remote
+#
+# Returns: 0, printing {"copy_files":N,"delete":{count,total,percent,limit,
+#   would_abort}} with "delete" null for pull; 1 and a logged error, printing
+#   nothing, when the dry run or the destination listing fails.
+plan_transfer_json() {
+    local log_file="$1"
+    local direction="$2"
+    local local_path="$3"
+    local remote_name="$4"
+
+    local cmd src dst
+    case "$direction" in
+        pull)   cmd=copy; src="$remote_name"; dst="$local_path" ;;
+        push)   cmd=sync; src="$local_path";  dst="$remote_name" ;;
+        update) cmd=sync; src="$remote_name"; dst="$local_path" ;;
+        *) log_error "$log_file" "Unknown plan direction: $direction"; return 1 ;;
+    esac
+
+    local flags out
+    flags=$(build_rclone_flags "false")
+    flags="${flags//--progress/}"
+    if ! out=$(rclone "$cmd" "$src" "$dst" $flags --dry-run --log-level NOTICE 2>&1); then
+        log_error "$log_file" "Could not compute the plan (rclone dry run failed)"
+        return 1
+    fi
+
+    local copies deletions=0 total=0 limit="${MAX_DELETE_PERCENT:-50}"
+    copies=$(grep -c "Skipped copy" <<< "$out" || true)
+
+    if [[ "$direction" == "pull" ]]; then
+        jq -n --argjson c "$copies" '{copy_files: $c, delete: null}'
+        return 0
+    fi
+
+    deletions=$(grep -c "Skipped delete" <<< "$out" || true)
+    total=$(count_dest_files "$log_file" "$dst") || return 1
+    [[ "$total" -lt "$deletions" ]] && total="$deletions"
+
+    jq -n --argjson c "$copies" --argjson d "$deletions" --argjson t "$total" \
+          --argjson l "$limit" '
+        {copy_files: $c,
+         delete: {count: $d, total: $t,
+                  percent: (if $t > 0 then ($d * 100 / $t | floor) else 0 end),
+                  limit: $l,
+                  would_abort: ($d * 100 > $l * $t)}}'
+}
