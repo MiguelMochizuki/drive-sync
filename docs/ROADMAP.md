@@ -14,10 +14,10 @@ The name stays "drive-sync" until phase 1 works. Before the first public announc
 
 | Area | Decision |
 |---|---|
-| File types | PDF, PNG and JPEG first. Lossy compression is opt-in and never the default. Configurable lossy images and video come later, only on demand. |
+| File types | PDF only. PNG and JPEG were considered and dropped: lossless gains are small (a few percent for JPEG, little for PNG outside unoptimized screenshots) and nearly all the compressible volume in the author's archive is PDF. A per-type pipeline waits until a second type has real demand. Lossy compression is opt-in and never the default. |
 | Tracking optimized files | A content hash per file in `state.json`, with no renaming. The `.optimized.pdf` suffix stays as a legacy mode, and the state migrates automatically. |
-| Originals under lossy compression | Moved to a local quarantine (`~/.drive-sync/originals/`) with configurable retention. `drive-sync restore` undoes it. PDF and other lossless types keep the current behavior. |
-| Tool dependencies | Each per-type tool (`gs`, `oxipng`, `jpegoptim`) is optional. A missing tool disables that type with a warning. Exit 69 applies only to `rclone`, `jq` and `flock`. This changes `docs/CONTRACT.md`. |
+| Replaced originals | Every original that compression replaces, PDFs included, is moved to a local quarantine (`~/.drive-sync/originals/`) with configurable retention (for example 30 days). `drive-sync restore` undoes it. |
+| Tool dependencies | `gs` is optional. A missing `gs` disables compression with a warning. Exit 69 applies only to `rclone`, `jq` and `flock`. This changes `docs/CONTRACT.md`. |
 | Destructive operations | A real confirmation (terminal only, `-f` skips it), a recoverable place for whatever `push` or `update` deletes, and a percentage limit that aborts a plan deleting more than X% of the files. |
 | New commands | `plan` (with `--json`), `init`, `doctor`, `restore` and `schedule` (systemd timer or launchd). `status` shows the cumulative space saved. |
 | TUI | Not in phase 1. `plan` gives a text and JSON report first, and a TUI would sit on top of it if there is demand. |
@@ -41,8 +41,8 @@ Before v2.2, `-f` was parsed in `main()` but never read, so no confirmation exis
 ## Phases
 
 1. v2.2 (safe base): real confirmation, backups, deletion limit, hash-based state with migration, `doctor`.
-2. v3.0 (the differentiator): multi-type pipeline (PDF, PNG, JPEG), `plan` with `--json`, savings report in `status`, quarantine and `restore`, `init`, and a README rewrite that shows real `plan` output.
-3. v3.x (convenience): `schedule`, opt-in lossy images, and a TUI and video only if people ask for them.
+2. v3.0 (the differentiator): `plan` with `--json`, savings report in `status`, quarantine and `restore`, `init`, and a README rewrite that shows real `plan` output.
+3. v3.x (convenience): `schedule`, and PNG, JPEG, lossy images, a TUI and video only if people ask for them.
 
 Safety goes first. A savings report on top of a tool that still deletes without asking would cost the first user their files.
 
