@@ -210,7 +210,7 @@ style. On a terminal titles are cyan, `[ok]` is green, `[FAIL]` is red and
 Redirected output never contains escape codes.
 
 ```
-drive_sync v2.2.1
+drive_sync v3.0.0
 
 Paths
   Local: /home/you/drive
@@ -407,6 +407,12 @@ On a Google Drive API rate limit, the tool pauses, waits for the
 configured backoff period, and resumes automatically, tracking recovery
 attempts in state and logs. Temporary errors (rclone exit 5/6) are
 distinguished from fatal ones (exit 7), which are not retried.
+
+### Upgrading
+
+See [`CHANGELOG.md`](CHANGELOG.md) for what changed and what to check when
+moving from 2.x: the quarantine is on by default, the first `sync` has no
+manifest yet, and the `update` archive is now pruned.
 
 ### Exit codes
 

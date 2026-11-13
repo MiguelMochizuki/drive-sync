@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# drive-sync.sh: Google Drive Sync Manager v2.2.1
+# drive-sync.sh: Google Drive Sync Manager v3.0.0
 #
 # Safe, modular bidirectional sync with optional PDF compression.
 # Originals are ALWAYS preserved if compression fails.
