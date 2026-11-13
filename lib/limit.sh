@@ -55,8 +55,11 @@ is_fatal_error() {
 #   lock_file: path to the lock file
 #   backoff_seconds: how long to sleep before probing again
 #
+# When the DRY_RUN environment variable is "true" it skips the rclone
+# cleanup and cache clear and writes no state; it still waits and probes.
+#
 # Returns: 0 and an incremented rate_limit_recoveries count on a
-#   successful probe; 1 if the probe still fails.
+#   successful probe (no count in a dry run); 1 if the probe still fails.
 recover_from_rate_limit() {
     local log_file="$1"
     local remote_name="$2"
@@ -66,15 +69,23 @@ recover_from_rate_limit() {
 
     log_warning "$log_file" "API rate limit detected, attempting recovery..."
 
-    # Clean up rclone's cache files
-    rclone cleanup "$remote_name" 2>/dev/null || true
-    rclone cache clear "$remote_name" 2>/dev/null || true
+    # A dry run only waits and probes. rclone cleanup empties the Drive trash,
+    # so it must never run in a preview.
+    local dry_run="${DRY_RUN:-false}"
+    if [[ "$dry_run" != "true" ]]; then
+        rclone cleanup "$remote_name" 2>/dev/null || true
+        rclone cache clear "$remote_name" 2>/dev/null || true
+    fi
 
     log_info "$log_file" "Waiting ${backoff_seconds}s for rate limit to reset..."
     sleep "$backoff_seconds"
 
     # Test connection with minimal API usage
     if rclone about "$remote_name" --tpslimit 1 &>/dev/null; then
+        if [[ "$dry_run" == "true" ]]; then
+            log_success "$log_file" "Rate limit cleared (dry run, nothing recorded)"
+            return 0
+        fi
         local recovery_count
         recovery_count=$(get_state_value "$state_file" "rate_limit_recoveries")
         recovery_count=${recovery_count:-0}

@@ -296,6 +296,10 @@ main() {
     local -a allowed_paths
     local command dry_run="false" force="false"
 
+    # Only -n/--dry-run may turn a dry run on. An inherited DRY_RUN=true would
+    # skip compression while rclone still ran for real.
+    export DRY_RUN="false"
+
     log_file=$(get_log_file)
     state_file=$(get_state_file)
     lock_file=$(get_lock_file)
@@ -333,7 +337,7 @@ main() {
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            -n|--dry-run)  dry_run="true"; shift ;;
+            -n|--dry-run)  dry_run="true"; export DRY_RUN="true"; shift ;;
             -f|--force)    force="true"; export FORCE="true"; shift ;;
             -v|--verbose)  export VERBOSE="true"; shift ;;
             -V|--version)  echo "drive_sync version ${VERSION}"; exit 0 ;;
